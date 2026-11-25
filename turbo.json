@@ -21,6 +21,10 @@
       "dependsOn": ["^generate", "generate"],
       "cache": false,
       "persistent": true
+    },
+    "@app/api#test": {
+      "dependsOn": ["^generate", "generate", "@app/db#test"],
+      "cache": false
     }
   }
 }

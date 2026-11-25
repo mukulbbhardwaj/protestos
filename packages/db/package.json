@@ -19,10 +19,12 @@
     "generate": "prisma generate",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "migrate:test": "node scripts/migrate-test.mjs",
+    "seed": "tsx --conditions=development prisma/seed.ts"
   },
   "dependencies": {
     "@app/shared": "workspace:*",
@@ -32,6 +34,7 @@
   "devDependencies": {
     "@types/node": "22.20.6",
     "prisma": "7.10.1",
-    "vitest": "5.1.1"
+    "vitest": "5.1.1",
+    "tsx": "4.23.15"
   }
 }

@@ -91,6 +91,7 @@ jobs:
       - run: |
           pnpm --filter @app/db generate
           pnpm --filter @app/db migrate:deploy
+          pnpm --filter @app/db seed
       - run: pnpm --filter @app/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v7
