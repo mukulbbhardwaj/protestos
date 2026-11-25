@@ -1,0 +1,35 @@
+# Render Blueprint: the API as a staging web service (free plan). Web is on Vercel and
+# proxies /api here (apps/web/vercel.json), so session cookies stay same-origin.
+# Secrets marked `sync: false` are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: protestos-api
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @app/db generate &&
+      pnpm turbo run build --filter=@app/api
+    startCommand: node apps/api/dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: '22.17.0'
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: '10000'
+      - key: MAIL_PROVIDER
+        value: log
+      - key: LOG_LEVEL
+        value: info
+      # Aiven service URI, with ?sslmode=require&uselibpqcompat=true appended.
+      - key: DATABASE_URL
+        sync: false
+      # The Vercel app URL, e.g. https://protestos-app.vercel.app (Origin check, email links).
+      - key: APP_URL
+        sync: false

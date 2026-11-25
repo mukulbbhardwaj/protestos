@@ -12,6 +12,8 @@ const EnvSchema = z.object({
   COOKIE_SECURE: z.stringbool().optional(),
   AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
   DEV_MAIL_DIR: z.string().optional(),
+  /** dev-file (local mailbox page) or log (staging: emails written to the server log). */
+  MAIL_PROVIDER: z.enum(['dev-file', 'log']).default('dev-file'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   LOG_PRETTY: z.stringbool().default(false),
   SENTRY_DSN: z.string().optional(),
