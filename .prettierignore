@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+dist
+coverage
+.turbo
+packages/db/src/generated
+packages/db/prisma/migrations
+apps/web/playwright-report
+apps/web/test-results
+docs/BUILD_PLAN.md

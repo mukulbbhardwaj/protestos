@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local-only placeholder credentials"
+paths = ['''^\.env\.example$''', '''^docker-compose\.yml$''', '''^\.github/workflows/ci\.yml$''']

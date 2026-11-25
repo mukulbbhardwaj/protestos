@@ -1,0 +1,19 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+.DS_Store
+
+# env files: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# generated
+packages/db/src/generated/
+
+# playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/

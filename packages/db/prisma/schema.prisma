@@ -1,0 +1,122 @@
+// Conventions (see docs/BUILD_PLAN.md section 5):
+// - money: Decimal(15,2); percentages and rates: Decimal(9,4)
+// - every tenant table has orgId, createdAt, updatedAt and an index starting with orgId
+// - dates are real DATE / TIMESTAMPTZ columns
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  STAFF
+  READ_ONLY
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum Plan {
+  STARTER
+  GROWTH
+  PRO
+}
+
+enum PlanStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  READ_ONLY
+  CANCELED
+}
+
+model Org {
+  id                    Int        @id @default(autoincrement())
+  name                  String
+  slug                  String     @unique
+  state                 String     @default("TX") @db.Char(2)
+  timezone              String     @default("America/Chicago")
+  logoKey               String?
+  primaryColor          String?
+  addressLines          String[]   @default([])
+  phone                 String?
+  website               String?
+  defaultContingencyPct Decimal    @default(0) @db.Decimal(9, 4)
+  defaultFlatFee        Decimal    @default(0) @db.Decimal(15, 2)
+  defaultBppFee         Decimal    @default(0) @db.Decimal(15, 2)
+  invoicePrefix         String     @default("INV-")
+  nextInvoiceNumber     Int        @default(1)
+  invoiceDueDays        Int        @default(30)
+  taxYearDefault        Int?
+  stripeCustomerId      String?    @unique
+  plan                  Plan       @default(STARTER)
+  planStatus            PlanStatus @default(TRIALING)
+  trialEndsAt           DateTime?  @db.Timestamptz(6)
+  propertyLimit         Int?
+  seatLimit             Int?
+  createdAt             DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime   @updatedAt @db.Timestamptz(6)
+
+  memberships Membership[]
+  auditLogs   AuditLog[]
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  name            String
+  emailVerifiedAt DateTime? @db.Timestamptz(6)
+  isSuperAdmin    Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+
+  memberships Membership[]
+  auditLogs   AuditLog[]
+}
+
+model Membership {
+  id        Int              @id @default(autoincrement())
+  orgId     Int
+  userId    Int
+  role      OrgRole
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+/// Append-only. Rows are never updated or deleted by the application.
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  orgId       Int
+  actorUserId Int?
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  ip          String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, entityType, entityId])
+}
