@@ -2,6 +2,7 @@ import { forOrg, type OrgDb } from '@app/db';
 import { createAuthService } from './auth.js';
 import type { ServiceContext } from './context.js';
 import { createOrgService } from './orgs.js';
+import { createPlatformDataService } from './platform-data.js';
 
 export function createServices(ctx: ServiceContext) {
   const scoped = new Map<number, OrgDb>();
@@ -22,6 +23,8 @@ export function createServices(ctx: ServiceContext) {
     },
     auth: createAuthService(ctx),
     orgs: createOrgService(ctx),
+    /** Super-admin only: what data the platform holds (raw access; never for tenant routes). */
+    platformData: createPlatformDataService(ctx),
     mail: ctx.mail,
     config: ctx.config,
     /** Org-scoped data access (forOrg). Cached per org; the extension is stateless. */

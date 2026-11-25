@@ -8,7 +8,11 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts'],
       // BUILD_PLAN 7: the fee engine must stay at 100% branch coverage.
-      thresholds: { 'src/fees/**': { statements: 100, branches: 100, functions: 100, lines: 100 } },
+      thresholds: {
+        'src/fees/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        // Spec savings-calculator.md section 8: the estimate engine too.
+        'src/estimate/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+      },
     },
   },
 });

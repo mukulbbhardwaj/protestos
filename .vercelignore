@@ -1,0 +1,14 @@
+# Never upload local secrets or data to Vercel.
+.env
+.env.*
+!.env.example
+.dev-mail/
+node_modules/
+**/node_modules/
+**/dist/
+**/.turbo/
+coverage/
+apps/web/test-results/
+apps/web/playwright-report/
+packages/db/src/generated/
+.DS_Store

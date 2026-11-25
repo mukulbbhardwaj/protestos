@@ -6,8 +6,9 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | Milestone                                | Status                    |
 | ---------------------------------------- | ------------------------- |
 | M0 Repo foundation                       | ✅ Done (awaiting review) |
-| M1 Auth, orgs and tenancy                | Not started               |
-| M2 Contacts, properties, tax years       | Not started               |
+| M1 Auth, orgs and tenancy                | ✅ Done                   |
+| M2 Contacts, properties, tax years       | ✅ Done                   |
+| M2.5 Tax savings calculator              | ✅ Done (awaiting review) |
 | M3 CSV import                            | Not started               |
 | M4 Invoicing and payments                | Not started               |
 | M5 Email and delivery tracking           | Not started               |
@@ -16,6 +17,64 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M2.5: Tax savings calculator (2026-11-26)
+
+Spec: [`docs/specs/savings-calculator.md`](docs/specs/savings-calculator.md). ADR 006.
+
+### Done
+
+- **Estimate engine** (`packages/shared/src/estimate`): Texas §42.26 unequal-appraisal estimate.
+  Comparable selection (strict and wide passes), land/size adjustment, median, homestead and
+  circuit-breaker caps, per-unit tax savings with percentage exemptions and the over-65 school
+  ceiling, fee and "client keeps". Commercial rules (spec 5a): building area, same building
+  type, neighborhood then market area. **100% coverage, enforced.**
+- **CAD roll data** (platform reference tables `CadParcel`, `CadTaxUnit`, `CadLoad`; tenant
+  role read-only). `pnpm db:backfill cad --county <c> --year 2026` replaces a county-year in one
+  transaction. Adapters: Harris (HCAD files), Travis/Denton/Montgomery (Legacy 8.0 export, one
+  parser), Collin (Texas Open Data Portal), Fort Bend and Williamson (Orion). `cad-sample` is a
+  synthetic Harris roll for dev and CI.
+- **Loaded locally (2026):** Harris 1,226,427 (incl. 68,797 commercial), Collin 364,455,
+  Fort Bend 280,394, Denton 278,731, Montgomery 232,479 (incl. 10,699 commercial),
+  Williamson 207,851. Values hand-checked against HCAD's source rows.
+- **Tax rates:** Harris (HCAD rate file), Collin (CAD entity list), Montgomery and Williamson
+  (county tax offices), Fort Bend (county worksheet, downloaded by hand). Files in
+  `packages/db/src/reference/cad-rates/`.
+- **Equity index** per parcel (improvement $/sq ft ÷ neighborhood median) for the
+  "over-assessed" filter.
+- **API:** coverage, search, browse with filters, facets, estimate, create prospect from a
+  parcel; isolation tests for each. Platform admin: `/admin/data/*` (super-admins only).
+- **Web:** Calculator page (Browse & filter, Search, estimate with comparables and per-unit
+  savings, create prospect), estimate card on the property page, Platform data page.
+- Trigram indexes are now declared in `schema.prisma` (Prisma had generated drops for them).
+- Select dropdowns use an inset chevron app-wide.
+
+### Verified
+
+- 220 unit/integration tests (shared 58, api 140, db 11, web 7, providers 2, worker 2) and
+  7 Playwright tests; lint, typecheck and format green.
+- Real Harris data: estimate p95 25 ms; browse sorted by equity 0.2 s; filtered 0.4–1.4 s.
+
+### Not done / known gaps
+
+- **Denton rates** (tax-roll download kept failing), **Travis** (Cloudflare blocks the
+  export; needs a manual download), **Dallas/Tarrant** (unreachable from this machine),
+  **Bexar** (no bulk download; open-records request).
+- Montgomery and Fort Bend are missing many MUD rates; estimates warn when a unit has no rate.
+- Collin publishes no over-65 data, so the school freeze isn't applied there (warned).
+- Denton commercial is left out: its export doesn't name building types.
+- Equity index outliers (tiny or unusual buildings) are capped at 0.1–10× but still surface
+  at the top of the default sort.
+
+### Decisions / assumptions to confirm
+
+1. HCAD's rate file has `curr` and `prop` columns; we use `curr`, else `prop`. Confirm against
+   a real 2026 tax bill.
+2. The demo owner (`owner@demo.test`) is a super-admin in development, for the Platform page.
+3. Florida research (`reports/Florida entry and competitor landscape.md`, not committed):
+   recommends Florida only after counsel confirms who may be paid to represent owners.
 
 ---
 

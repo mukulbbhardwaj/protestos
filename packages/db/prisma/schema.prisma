@@ -92,6 +92,14 @@ enum ResultType {
   WITHDRAWN
 }
 
+/// Spec savings-calculator.md: how a taxing unit is treated (school units carry the over-65 ceiling).
+enum TaxUnitKind {
+  SCHOOL
+  COUNTY
+  CITY
+  OTHER
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -279,8 +287,92 @@ model County {
   cadWebsite String?
 
   properties Property[]
+  cadParcels CadParcel[]
+  cadUnits   CadTaxUnit[]
+  cadLoads   CadLoad[]
 
   @@unique([state, name])
+}
+
+/// One account on a CAD's certified roll (public reference data, not tenant data). Loaded by
+/// `pnpm db:backfill cad`; the savings calculator compares a parcel with its neighbors.
+model CadParcel {
+  id               Int      @id @default(autoincrement())
+  countyId         Int
+  taxYear          Int
+  /// Normalized like Property.accountNumber.
+  accountNumber    String
+  /// State property tax code, e.g. A1 = single-family residence.
+  stateClass       String
+  neighborhoodCode String
+  ownerName        String?
+  situsLine        String?
+  situsZip         String?
+  landValue        Decimal  @db.Decimal(15, 2)
+  improvementValue Decimal  @db.Decimal(15, 2)
+  marketValue      Decimal  @db.Decimal(15, 2)
+  /// After the homestead or circuit-breaker cap.
+  appraisedValue   Decimal  @db.Decimal(15, 2)
+  /// Living area for homes; building area for commercial property.
+  livingAreaSqft   Int?
+  yearBuilt        Int?
+  qualityCode      String?
+  /// Building type for commercial property (e.g. "Office Bldgs. Low-Rise"); comps must match.
+  propertyUse      String?
+  /// The CAD's wider market area, for commercial comparables beyond the neighborhood.
+  marketArea       String?
+  /// Improvement value per sq ft ÷ the median of its neighborhood (same class, and same building
+  /// type for commercial). 1.25 = appraised 25% above comparable neighbors. Set by the loader.
+  equityIndex      Decimal? @db.Decimal(9, 4)
+  homestead        Boolean  @default(false)
+  /// Over-65 or disabled homestead: school taxes are frozen (§11.26).
+  taxCeiling       Boolean  @default(false)
+  /// [{ code, taxableValue, exemptPct }]: the account's taxing units.
+  units            Json     @default("[]")
+
+  county County @relation(fields: [countyId], references: [id])
+
+  @@unique([countyId, taxYear, accountNumber])
+  @@index([countyId, taxYear, neighborhoodCode, stateClass, livingAreaSqft])
+  @@index([countyId, taxYear, marketArea, stateClass, propertyUse])
+  @@index([countyId, taxYear, equityIndex])
+  @@index([countyId, taxYear, marketValue])
+  @@index([situsLine(ops: raw("gin_trgm_ops"))], type: Gin, map: "CadParcel_situsLine_trgm")
+  @@index([ownerName(ops: raw("gin_trgm_ops"))], type: Gin, map: "CadParcel_ownerName_trgm")
+}
+
+/// A taxing unit (school district, county, city, MUD …) and its rate for one year.
+model CadTaxUnit {
+  id       Int         @id @default(autoincrement())
+  countyId Int
+  taxYear  Int
+  code     String
+  name     String
+  kind     TaxUnitKind @default(OTHER)
+  /// Percent: 1.0 means 1%. Null until the unit adopts its rate.
+  ratePct  Decimal?    @db.Decimal(9, 6)
+
+  county County @relation(fields: [countyId], references: [id])
+
+  @@unique([countyId, taxYear, code])
+}
+
+/// Provenance: which roll files were loaded for a county-year, and when.
+model CadLoad {
+  id          Int      @id @default(autoincrement())
+  countyId    Int
+  taxYear     Int
+  source      String
+  files       Json
+  parcelCount Int
+  /// Known gaps in this county's data, shown as warnings on its estimates.
+  notes       String[] @default([])
+  /// When this county-year's data last changed (a load, or a re-index): caches key on it.
+  loadedAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  county County @relation(fields: [countyId], references: [id])
+
+  @@unique([countyId, taxYear])
 }
 
 /// Prospects and clients share one table (BUILD_PLAN 5.2). Converting a prospect sets kind=CLIENT,
@@ -319,6 +411,11 @@ model Contact {
   @@index([orgId, kind, archivedAt])
   @@index([orgId, status])
   @@index([orgId, createdAt])
+  // Trigram indexes for search (pg_trgm).
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_displayName_trgm")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_email_trgm")
+  @@index([clientNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_clientNumber_trgm")
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_phone_trgm")
 }
 
 model Property {
@@ -356,6 +453,8 @@ model Property {
   @@index([orgId, contactId])
   @@index([orgId, consultantUserId])
   @@index([orgId, archivedAt])
+  @@index([accountNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Property_accountNumber_trgm")
+  @@index([situsLine(ops: raw("gin_trgm_ops"))], type: Gin, map: "Property_situsLine_trgm")
 }
 
 /// Values and protest status for one property in one tax year. Fees are never stored here;

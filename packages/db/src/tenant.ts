@@ -15,8 +15,8 @@ export const TENANT_MODELS = [
   'ProtestStageEvent',
 ] as const;
 
-/** Readable through `forOrg` (User filtered by RLS; County is shared reference data) but never writable. */
-const READ_ONLY_MODELS = new Set(['User', 'County']);
+/** Readable through `forOrg` (User filtered by RLS; the rest is shared reference data) but never writable. */
+const READ_ONLY_MODELS = new Set(['User', 'County', 'CadParcel', 'CadTaxUnit', 'CadLoad']);
 
 const READ_OPS = new Set([
   'findUnique',

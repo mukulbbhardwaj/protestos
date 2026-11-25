@@ -5,17 +5,21 @@ import { NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useOrg } from '@/hooks/useOrg';
 import { cn } from '@/lib/utils';
+import { useMe } from '@/hooks/useMe';
 import { MODULES, type ModuleDef } from '@/modules';
 import { Logo } from './Logo';
 import { OrgSwitcher } from './OrgSwitcher';
 import { SearchButton } from './SearchDialog';
 import { UserMenu } from './UserMenu';
 
-const GROUPS: ModuleDef['group'][] = ['Work', 'Money', 'Firm'];
+const GROUPS: ModuleDef['group'][] = ['Work', 'Money', 'Firm', 'Platform'];
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const org = useOrg();
-  const visible = MODULES.filter((m) => roleAtLeast(org.role, m.minRole));
+  const { data: me } = useMe();
+  const visible = MODULES.filter(
+    (m) => roleAtLeast(org.role, m.minRole) && (!m.superAdminOnly || me?.user.isSuperAdmin),
+  );
 
   return (
     <nav aria-label="Main" className="flex-1 space-y-5 overflow-y-auto px-3 py-2">

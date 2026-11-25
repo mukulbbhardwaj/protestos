@@ -50,6 +50,7 @@ Lead → Prospect → Contract + Appointment of Agent (Form 50-162) signed
 **Target customer for v1:** Texas firms with 1–30 staff, managing 200–20,000 property accounts. Today they use spreadsheets, QuickBooks and email.
 
 **v1 value proposition:**
+- **A tax savings calculator** (the MVP's headline, spec: [`docs/specs/savings-calculator.md`](specs/savings-calculator.md)): any homeowner's account → an equity-based estimate of the tax a protest would save, built on public appraisal district data, and turned into a prospect in one click.
 - One place for clients, properties, hearings and billing.
 - The contingency invoice is calculated automatically from notice and final values.
 - Bulk invoice emails with delivery tracking.
@@ -96,10 +97,11 @@ One user can belong to several orgs (`Membership` table) and switches between th
 17. Org settings (branding, fee defaults, invoice numbering, sender identity)
 18. SaaS billing through Stripe (plans, trial, seat or account limits)
 19. A super-admin console (basic)
+20. **Tax savings calculator** (M2.5): an equity (unequal appraisal) estimate from the CAD's public bulk roll, starting with Harris County residential. See [`docs/specs/savings-calculator.md`](specs/savings-calculator.md).
 
 ### Out of scope for v1 (do not build)
-- Automatic CAD data pulls or scraping
-- Evidence and comparable-sales packets
+- Scraping CAD websites, and scheduled automatic CAD data pulls. (Loading a CAD's published bulk roll files by hand, for the calculator, is in scope.)
+- Evidence packets, and sales-comparable estimates (they need MLS or vendor sales data; Texas doesn't publish sale prices)
 - Electronic protest filing with appraisal districts
 - Any state other than Texas. Keep the code ready for more states, but don't add them.
 - A client-facing portal (clients logging in)
@@ -500,6 +502,13 @@ Each milestone ends with a demo checklist, green CI and an update to `PROGRESS.m
   - you can create a client with 3 properties, enter notice and final values, and see a correct fee preview
   - fee engine coverage is 100%
 
+### M2.5: Tax savings calculator (4–5 days)
+Spec: [`docs/specs/savings-calculator.md`](specs/savings-calculator.md). Added after M2 as the MVP's headline feature; built before M3.
+- CAD roll loader (backfill step) for Harris County: parcels, buildings, taxing units, rates
+- Estimate engine in `packages/shared/estimate`: comparable selection, adjustment, median, caps, per-unit tax savings, fee
+- Calculator page (search the county roll → estimate → create prospect) and an estimate card on the property page
+- **Done when:** the spec's section 8 acceptance criteria pass, including 100% engine coverage and three hand-checked real accounts
+
 ### M3: CSV import (3–4 days)
 - The upload → mapping → dry run → confirm → job pipeline for the three import types
 - Normalization utilities with tests
@@ -624,6 +633,7 @@ Record each significant choice as a short ADR in `docs/decisions/NNN-title.md`.
 3. **M6:** One platform DocuSign account, or each firm connects its own? Is a cheaper provider (Dropbox Sign, Documenso) acceptable?
 4. **M9:** Final pricing and trial length. Charge per property or per seat?
 5. **Any time:** The product name and domain.
+5a. **After M2.5:** Should the public (logged-out) calculator ship before M3? Which county is next? Is buying sales data (MLS or a vendor) worth it?
 6. **Before the pilot:** The terms of service, privacy policy and a data processing agreement. Mukul needs to get these written. They are not built in code.
 
 ---

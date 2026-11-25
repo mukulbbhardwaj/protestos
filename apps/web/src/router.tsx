@@ -17,6 +17,8 @@ import { DevMailboxPage } from '@/pages/dev/DevMailboxPage';
 import { AcceptInvitePage } from '@/pages/invite/AcceptInvitePage';
 import { LandingPage } from '@/pages/landing/LandingPage';
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
+import { CalculatorPage } from '@/pages/org/calculator/CalculatorPage';
+import { PlatformDataPage } from '@/pages/org/platform/PlatformDataPage';
 import { ContactDetailPage } from '@/pages/org/contacts/ContactDetailPage';
 import { ContactsListPage } from '@/pages/org/contacts/ContactsListPage';
 import { DashboardPage } from '@/pages/org/DashboardPage';
@@ -67,6 +69,8 @@ export const router = createBrowserRouter([
           { path: 'contacts/:contactId', element: <ContactDetailPage /> },
           { path: 'properties', element: <PropertiesListPage /> },
           { path: 'properties/:propertyId', element: <PropertyDetailPage /> },
+          { path: 'calculator', element: <CalculatorPage /> },
+          { path: 'platform-data', element: <PlatformDataPage /> },
           ...placeholderRoutes,
           {
             path: 'finance',

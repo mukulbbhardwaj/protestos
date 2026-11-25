@@ -22,7 +22,7 @@ function mulberry32(seed: number) {
   };
 }
 
-class Rng {
+export class Rng {
   private next: () => number;
   constructor(seed: number) {
     this.next = mulberry32(seed);

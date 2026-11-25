@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PROPERTY_TYPE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
+import { EstimateCard } from '../calculator/EstimateCard';
 import { computeFee } from './FeePreview';
 import { TaxYearEditor } from './TaxYearEditor';
 
@@ -96,6 +97,8 @@ export function PropertyDetailPage() {
           </Button>
         )}
       </div>
+
+      <EstimateCard countyId={p.county.id} accountNumber={p.accountNumber} />
 
       <Card className="mb-6 overflow-hidden">
         <CardHeader className="flex-row items-center justify-between gap-4">
