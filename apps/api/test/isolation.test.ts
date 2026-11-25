@@ -78,6 +78,16 @@ const CASES: IsolationCase[] = [
   },
   { method: 'POST', path: '/properties/bulk/rollover', body: { ids: [1], taxYear: 2030 } },
   { method: 'GET', path: '/search?q=bravo' },
+  { method: 'GET', path: '/calculator/coverage' },
+  { method: 'GET', path: '/calculator/facets?countyId=1&taxYear=2026' },
+  { method: 'GET', path: '/calculator/parcels?countyId=1&taxYear=2026' },
+  { method: 'GET', path: '/calculator/search?countyId=1&taxYear=2026&q=bravo' },
+  { method: 'GET', path: '/calculator/estimate?countyId=1&taxYear=2026&account=SHARED1' },
+  {
+    method: 'POST',
+    path: '/calculator/prospect',
+    body: { countyId: 1, taxYear: 2026, account: 'SHARED1', displayName: 'Intruder' },
+  },
 ];
 
 let t: TestContext;
@@ -135,6 +145,28 @@ beforeAll(async () => {
       accountNumber: 'BRAVO-1',
       countyId: county.id,
       situsLine: '1 Bravo St',
+    },
+  });
+  // A public roll parcel that org B also has as a property: org A's estimate must not link to it.
+  await t.prisma.cadParcel.create({
+    data: {
+      countyId: county.id,
+      taxYear: 2026,
+      accountNumber: 'SHARED1',
+      stateClass: 'A1',
+      neighborhoodCode: 'N1',
+      landValue: '1',
+      improvementValue: '1',
+      marketValue: '2',
+      appraisedValue: '2',
+    },
+  });
+  await t.prisma.property.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      accountNumber: 'SHARED1',
+      countyId: county.id,
     },
   });
   const yearB = await t.prisma.taxYearRecord.create({

@@ -17,6 +17,9 @@ export async function backfillDemoBase(prisma: PrismaClient) {
     });
 
   const owner = await user('owner@demo.test', 'Olivia Owner');
+  // Development only (this step refuses production): the demo owner also gets the platform
+  // admin pages (/admin), so one login shows everything.
+  await prisma.user.update({ where: { id: owner.id }, data: { isSuperAdmin: true } });
   const admin = await user('admin@demo.test', 'Adam Admin');
   const staff = await user('staff@demo.test', 'Sam Consultant');
   const viewer = await user('viewer@demo.test', 'Vera Viewer');

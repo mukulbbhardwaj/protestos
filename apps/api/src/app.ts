@@ -12,6 +12,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandling, registerOriginCheck } from './plugins/errors.js';
+import { adminRoutes } from './routes/admin.js';
 import { authRoutes } from './routes/auth.js';
 import { countyRoutes } from './routes/counties.js';
 import { devRoutes } from './routes/dev.js';
@@ -74,6 +75,7 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
   await app.register(authRoutes, { services, rateLimitMax: deps.authRateLimitPerMin ?? 10 });
   await app.register(onboardingRoutes, { services });
   await app.register(countyRoutes, { services });
+  await app.register(adminRoutes, { services });
   await app.register(tenantRoutes, { services, prefix: '/orgs/:orgSlug' });
   if (deps.mail instanceof DevFileMailProvider) {
     await app.register(devRoutes, { mailbox: deps.mail });

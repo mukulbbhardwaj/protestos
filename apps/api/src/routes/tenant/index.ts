@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { registerTenantContext } from '../../plugins/tenant.js';
 import type { Services } from '../../services/index.js';
 import { auditLogRoutes } from './audit-log.js';
+import { calculatorRoutes } from './calculator.js';
 import { contactRoutes } from './contacts.js';
 import { financeRoutes } from './finance.js';
 import { invitationRoutes } from './invitations.js';
@@ -26,4 +27,5 @@ export const tenantRoutes: FastifyPluginAsync<{ services: Services }> = async (
   await app.register(contactRoutes);
   await app.register(propertyRoutes);
   await app.register(searchRoutes);
+  await app.register(calculatorRoutes);
 };

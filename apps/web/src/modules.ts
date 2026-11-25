@@ -1,6 +1,8 @@
 import type { OrgRole } from '@app/shared';
 import {
   Banknote,
+  Database,
+  Calculator,
   CalendarClock,
   FileSignature,
   FileText,
@@ -21,7 +23,9 @@ export interface ModuleDef {
   path: string;
   icon: LucideIcon;
   minRole: OrgRole;
-  group: 'Work' | 'Money' | 'Firm';
+  group: 'Work' | 'Money' | 'Firm' | 'Platform';
+  /** Platform admins only (User.isSuperAdmin), whatever their firm role. */
+  superAdminOnly?: boolean;
   /** Milestone that ships the real screen; undefined once it exists. */
   comingIn?: string;
   summary: string;
@@ -85,6 +89,16 @@ export const MODULES: ModuleDef[] = [
       'Protest stage tracker with full history',
       'Bulk-assign consultants and roll properties into a new tax year',
     ],
+  },
+  {
+    key: 'calculator',
+    label: 'Calculator',
+    path: 'calculator',
+    icon: Calculator,
+    minRole: 'READ_ONLY',
+    group: 'Work',
+    summary:
+      'Estimate what a protest would save any home or commercial property, from public appraisal data.',
   },
   {
     key: 'hearings',
@@ -180,6 +194,16 @@ export const MODULES: ModuleDef[] = [
       'Downloadable error rows',
       'Safe to re-run: no duplicates',
     ],
+  },
+  {
+    key: 'platform-data',
+    label: 'Platform data',
+    path: 'platform-data',
+    icon: Database,
+    minRole: 'READ_ONLY',
+    group: 'Platform',
+    superAdminOnly: true,
+    summary: 'What appraisal and firm data the platform holds, county by county.',
   },
   {
     key: 'settings',
