@@ -82,6 +82,9 @@ function toForm(s: OrgSettings): FormIn {
     invoicePrefix: s.invoicePrefix,
     nextInvoiceNumber: s.nextInvoiceNumber,
     invoiceDueDays: s.invoiceDueDays,
+    taxYearDefault: s.taxYearDefault,
+    savingsBasis: s.savingsBasis,
+    flatFeeCurrentYearOnly: s.flatFeeCurrentYearOnly,
   };
 }
 
@@ -269,7 +272,7 @@ export function GeneralSettingsPage() {
       </Section>
 
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/90 backdrop-blur lg:left-64">
-        <div className="mx-auto flex max-w-6xl items-center justify-end gap-2 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[96rem] items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:px-8">
           {form.formState.isDirty && (
             <p className="mr-auto text-sm text-muted-foreground">You have unsaved changes.</p>
           )}

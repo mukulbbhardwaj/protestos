@@ -39,10 +39,11 @@ export function GuestOnly() {
   return <Outlet />;
 }
 
-/** `/`: send people to the right place. */
-export function HomeRedirect() {
-  const { data: me } = useMe();
-  if (!me) return null;
+/** `/`: the landing page when logged out, otherwise the user's firm (or onboarding). */
+export function HomeRedirect({ landing }: { landing: ReactNode }) {
+  const { data: me, isPending } = useMe();
+  if (isPending) return <FullPageSpinner />;
+  if (!me) return <>{landing}</>;
   if (me.memberships.length === 0) return <Navigate to="/onboarding" replace />;
   const remembered = me.memberships.find((m) => m.orgSlug === lastOrg());
   return <Navigate to={`/${(remembered ?? me.memberships[0]!).orgSlug}`} replace />;

@@ -45,7 +45,6 @@ export const MODULES: ModuleDef[] = [
     icon: UserPlus,
     minRole: 'READ_ONLY',
     group: 'Work',
-    comingIn: 'M2',
     summary: 'Track leads from first contact to signed contract.',
     features: [
       'Pipeline with statuses: New, Contacted, Docs sent, Signed, Lost',
@@ -62,7 +61,6 @@ export const MODULES: ModuleDef[] = [
     icon: Users,
     minRole: 'READ_ONLY',
     group: 'Work',
-    comingIn: 'M2',
     summary: 'Every client, their contacts, fee terms and history in one place.',
     features: [
       'Search and filter by county, consultant or unpaid balance',
@@ -79,7 +77,6 @@ export const MODULES: ModuleDef[] = [
     icon: Home,
     minRole: 'READ_ONLY',
     group: 'Work',
-    comingIn: 'M2',
     summary: 'CAD accounts and their values for each tax year.',
     features: [
       'All 254 Texas counties, with CAD links',

@@ -15,8 +15,13 @@ import { SignUpPage } from '@/pages/auth/SignUpPage';
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
 import { DevMailboxPage } from '@/pages/dev/DevMailboxPage';
 import { AcceptInvitePage } from '@/pages/invite/AcceptInvitePage';
+import { LandingPage } from '@/pages/landing/LandingPage';
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
+import { ContactDetailPage } from '@/pages/org/contacts/ContactDetailPage';
+import { ContactsListPage } from '@/pages/org/contacts/ContactsListPage';
 import { DashboardPage } from '@/pages/org/DashboardPage';
+import { PropertiesListPage } from '@/pages/org/properties/PropertiesListPage';
+import { PropertyDetailPage } from '@/pages/org/properties/PropertyDetailPage';
 import { FinancePage } from '@/pages/org/FinancePage';
 import { ModulePage } from '@/pages/org/ModulePage';
 import { AuditLogPage } from '@/pages/org/settings/AuditLogPage';
@@ -46,16 +51,22 @@ export const router = createBrowserRouter([
   { path: '/verify-email', element: <VerifyEmailPage /> },
   { path: '/invite/:token', element: <AcceptInvitePage /> },
   ...(import.meta.env.DEV ? [{ path: '/dev/mailbox', element: <DevMailboxPage /> }] : []),
+  // Logged-out visitors see the landing page; logged-in users go to their firm.
+  { path: '/', element: <HomeRedirect landing={<LandingPage />} /> },
   {
     element: <RequireAuth />,
     children: [
-      { path: '/', element: <HomeRedirect /> },
       { path: '/onboarding', element: <OnboardingPage /> },
       {
         path: '/:orgSlug',
         element: <OrgLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
+          { path: 'clients', element: <ContactsListPage key="clients" kind="CLIENT" /> },
+          { path: 'prospects', element: <ContactsListPage key="prospects" kind="PROSPECT" /> },
+          { path: 'contacts/:contactId', element: <ContactDetailPage /> },
+          { path: 'properties', element: <PropertiesListPage /> },
+          { path: 'properties/:propertyId', element: <PropertyDetailPage /> },
           ...placeholderRoutes,
           {
             path: 'finance',

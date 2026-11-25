@@ -1,12 +1,12 @@
-import { roleAtLeast, type OrgOverview } from '@app/shared';
+import { PROTEST_STAGES, roleAtLeast, type OrgOverview } from '@app/shared';
 import {
   ArrowRight,
   CalendarClock,
   CheckCircle2,
   Circle,
   Clock,
-  FileSignature,
   Home,
+  UserPlus,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -20,20 +20,77 @@ import { useMe } from '@/hooks/useMe';
 import { useOrg } from '@/hooks/useOrg';
 import { useOrgQuery } from '@/hooks/useOrgQuery';
 import { daysUntil } from '@/lib/format';
+import { STAGE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 
-function StatTile({ label, icon: Icon, note }: { label: string; icon: LucideIcon; note: string }) {
+function StatTile({
+  label,
+  icon: Icon,
+  note,
+  value,
+  to,
+}: {
+  label: string;
+  icon: LucideIcon;
+  note: string;
+  value?: number | undefined;
+  to?: string;
+}) {
+  const body = (
+    <CardContent className="p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <Icon className="size-4 text-muted-foreground" />
+      </div>
+      <p
+        className={cn(
+          'mt-2 text-2xl font-semibold tabular-nums',
+          value === undefined && 'text-muted-foreground/60',
+        )}
+      >
+        {value === undefined ? '—' : value.toLocaleString()}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+    </CardContent>
+  );
   return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <Icon className="size-4 text-muted-foreground" />
-        </div>
-        <p className="mt-2 text-2xl font-semibold tabular-nums text-muted-foreground/60">—</p>
-        <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-      </CardContent>
+    <Card className={cn(to && 'transition-colors hover:bg-muted/30')}>
+      {to ? <Link to={to}>{body}</Link> : body}
     </Card>
+  );
+}
+
+/** Property-years by protest stage: one series, so one hue and value labels, no legend. */
+function StageFunnel({ data, orgSlug }: { data: OrgOverview['stats']; orgSlug: string }) {
+  const counts = new Map(data.stages.map((s) => [s.stage, s.count]));
+  const rows = PROTEST_STAGES.map((stage) => ({ stage, count: counts.get(stage) ?? 0 })).filter(
+    (r) => r.count > 0 || !['INVOICED', 'PAID'].includes(r.stage),
+  );
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  const total = rows.reduce((a, r) => a + r.count, 0);
+  return (
+    <ul className="space-y-1.5" aria-label={`Property-years by protest stage, ${data.taxYear}`}>
+      {rows.map((r) => (
+        <li key={r.stage}>
+          <Link
+            to={`/${orgSlug}/properties?stage=${r.stage}`}
+            className="group grid grid-cols-[8.5rem_1fr_3.5rem] items-center gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-muted/50"
+            title={`${STAGE_LABELS[r.stage]}: ${r.count.toLocaleString()} (${total ? Math.round((r.count / total) * 100) : 0}%)`}
+          >
+            <span className="truncate text-muted-foreground group-hover:text-foreground">
+              {STAGE_LABELS[r.stage]}
+            </span>
+            <span className="h-2.5 rounded-r bg-muted">
+              <span
+                className="block h-full rounded-r bg-primary/80 group-hover:bg-primary"
+                style={{ width: `${r.count === 0 ? 0 : Math.max(1.5, (r.count / max) * 100)}%` }}
+              />
+            </span>
+            <span className="text-right tabular-nums">{r.count.toLocaleString()}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -48,7 +105,7 @@ export function DashboardPage() {
     ? [
         {
           done: data.checklist.importedData,
-          title: 'Import clients and properties',
+          title: 'Add clients and properties',
           body: 'Bring in your spreadsheet in a few minutes.',
           to: 'imports',
           soon: 'M3',
@@ -102,23 +159,60 @@ export function DashboardPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Active clients" icon={Users} note="Available once clients exist (M2)" />
         <StatTile
-          label="Properties this tax year"
+          label="Active clients"
+          icon={Users}
+          value={data?.stats.activeClients}
+          note="Not archived"
+          to={`/${org.orgSlug}/clients`}
+        />
+        <StatTile
+          label={`Properties in ${data?.stats.taxYear ?? 'this tax year'}`}
           icon={Home}
-          note="Available with properties (M2)"
+          value={data?.stats.propertiesThisYear}
+          note="With a record this tax year"
+          to={`/${org.orgSlug}/properties`}
+        />
+        <StatTile
+          label="New prospects"
+          icon={UserPlus}
+          value={data?.stats.newProspects30d}
+          note="Last 30 days"
+          to={`/${org.orgSlug}/prospects?sort=newest`}
         />
         <StatTile
           label="Hearings this week"
           icon={CalendarClock}
           note="Available with hearings (M7)"
         />
-        <StatTile
-          label="Awaiting signature"
-          icon={FileSignature}
-          note="Available with documents (M6)"
-        />
       </div>
+
+      {data && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>{data.stats.taxYear} protest progress</CardTitle>
+            <CardDescription>
+              Property-years by stage. Click a stage to see its properties.
+              {data.stats.myProperties > 0 && (
+                <>
+                  {' '}
+                  You’re the consultant on{' '}
+                  <Link
+                    className="text-primary hover:underline"
+                    to={`/${org.orgSlug}/properties?consultantId=${me?.user.id}`}
+                  >
+                    {data.stats.myProperties.toLocaleString()} properties
+                  </Link>
+                  .
+                </>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StageFunnel data={data.stats} orgSlug={org.orgSlug} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

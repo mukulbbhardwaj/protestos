@@ -117,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Logo withName={false} className="lg:hidden" />
           <SearchButton />
         </header>
-        <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

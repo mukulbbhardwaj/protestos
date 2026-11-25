@@ -1,5 +1,5 @@
 // First-run bootstrap for `pnpm dev`: creates .env, starts Postgres, applies migrations to the
-// dev and test databases, and loads demo data into an empty dev database.
+// dev and test databases, and backfills counties plus demo/sample data (each step skips what already exists).
 import { execSync } from 'node:child_process';
 import { copyFileSync, existsSync } from 'node:fs';
 
@@ -21,4 +21,4 @@ run('docker compose up -d --wait');
 run('pnpm --filter @app/db generate');
 run('pnpm --filter @app/db migrate:deploy');
 run('pnpm --filter @app/db migrate:test');
-run('pnpm --filter @app/db seed');
+run('pnpm --filter @app/db backfill all');

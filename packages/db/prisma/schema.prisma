@@ -32,6 +32,66 @@ enum AuthTokenKind {
   RESET_PASSWORD
 }
 
+enum SavingsBasis {
+  APPRAISED
+  MARKET
+}
+
+enum ContactKind {
+  PROSPECT
+  CLIENT
+}
+
+enum ProspectStatus {
+  NEW
+  CONTACTED
+  DOCS_SENT
+  SIGNED
+  LOST
+}
+
+enum EntityType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum ContactSource {
+  WEB_FORM
+  MANUAL
+  IMPORT
+  REFERRAL
+}
+
+enum PropertyType {
+  RESIDENTIAL
+  COMMERCIAL
+  BPP
+  LAND
+  OTHER
+}
+
+/// BUILD_PLAN 5.4. One per property-year.
+enum ProtestStage {
+  NOT_STARTED
+  AOA_SIGNED
+  NOTICE_RECEIVED
+  PROTEST_FILED
+  HEARING_SCHEDULED
+  SETTLED
+  BOARD_ORDER
+  NO_CHANGE
+  WITHDRAWN
+  INVOICED
+  PAID
+}
+
+enum ResultType {
+  SETTLEMENT
+  BOARD_ORDER
+  NO_CHANGE
+  WITHDRAWN
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -47,36 +107,46 @@ enum PlanStatus {
 }
 
 model Org {
-  id                    Int        @id @default(autoincrement())
-  name                  String
-  slug                  String     @unique
-  state                 String     @default("TX") @db.Char(2)
-  timezone              String     @default("America/Chicago")
-  logoKey               String?
-  primaryColor          String?
-  addressLines          String[]   @default([])
-  phone                 String?
-  website               String?
-  defaultContingencyPct Decimal    @default(0) @db.Decimal(9, 4)
-  defaultFlatFee        Decimal    @default(0) @db.Decimal(15, 2)
-  defaultBppFee         Decimal    @default(0) @db.Decimal(15, 2)
-  invoicePrefix         String     @default("INV-")
-  nextInvoiceNumber     Int        @default(1)
-  invoiceDueDays        Int        @default(30)
-  taxYearDefault        Int?
-  stripeCustomerId      String?    @unique
-  plan                  Plan       @default(STARTER)
-  planStatus            PlanStatus @default(TRIALING)
-  trialEndsAt           DateTime?  @db.Timestamptz(6)
-  propertyLimit         Int?
-  seatLimit             Int?
-  createdAt             DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime   @updatedAt @db.Timestamptz(6)
+  id                     Int          @id @default(autoincrement())
+  name                   String
+  slug                   String       @unique
+  state                  String       @default("TX") @db.Char(2)
+  timezone               String       @default("America/Chicago")
+  logoKey                String?
+  primaryColor           String?
+  addressLines           String[]     @default([])
+  phone                  String?
+  website                String?
+  defaultContingencyPct  Decimal      @default(0) @db.Decimal(9, 4)
+  defaultFlatFee         Decimal      @default(0) @db.Decimal(15, 2)
+  defaultBppFee          Decimal      @default(0) @db.Decimal(15, 2)
+  invoicePrefix          String       @default("INV-")
+  nextInvoiceNumber      Int          @default(1)
+  invoiceDueDays         Int          @default(30)
+  /// The current billing (protest) year. Null means the calendar year.
+  taxYearDefault         Int?
+  nextClientNumber       Int          @default(1001)
+  /// BUILD_PLAN 7 [ASK]: which value savings are measured on.
+  savingsBasis           SavingsBasis @default(APPRAISED)
+  /// The flat fee is only charged on the current billing year (reference-app rule).
+  flatFeeCurrentYearOnly Boolean      @default(true)
+  stripeCustomerId       String?      @unique
+  plan                   Plan         @default(STARTER)
+  planStatus             PlanStatus   @default(TRIALING)
+  trialEndsAt            DateTime?    @db.Timestamptz(6)
+  propertyLimit          Int?
+  seatLimit              Int?
+  createdAt              DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime     @updatedAt @db.Timestamptz(6)
 
   memberships Membership[]
   auditLogs   AuditLog[]
   invitations Invitation[]
   settings    OrgSetting[]
+  contacts    Contact[]
+  properties  Property[]
+  taxYears    TaxYearRecord[]
+  stageEvents ProtestStageEvent[]
 }
 
 model User {
@@ -95,6 +165,8 @@ model User {
   sessions        Session[]
   authTokens      AuthToken[]
   invitationsSent Invitation[]
+  consultantFor   Property[]
+  stageEvents     ProtestStageEvent[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -196,4 +268,154 @@ model AuditLog {
 
   @@index([orgId, createdAt])
   @@index([orgId, entityType, entityId])
+}
+
+/// Platform reference data: all 254 Texas counties and their appraisal districts. Not tenant data.
+model County {
+  id         Int     @id @default(autoincrement())
+  state      String  @db.Char(2)
+  name       String
+  cadName    String
+  cadWebsite String?
+
+  properties Property[]
+
+  @@unique([state, name])
+}
+
+/// Prospects and clients share one table (BUILD_PLAN 5.2). Converting a prospect sets kind=CLIENT,
+/// assigns a clientNumber and stamps convertedAt, which is never overwritten afterwards.
+model Contact {
+  id             Int             @id @default(autoincrement())
+  orgId          Int
+  kind           ContactKind
+  status         ProspectStatus?
+  clientNumber   String?
+  displayName    String
+  entityType     EntityType      @default(INDIVIDUAL)
+  email          String?
+  billingEmail   String?
+  phone          String?
+  /// { line1, line2, city, state, zip }
+  mailingAddress Json?
+  billingAddress Json?
+  nameOnCad      String?
+  contingencyPct Decimal?        @db.Decimal(9, 4)
+  flatFee        Decimal?        @db.Decimal(15, 2)
+  bppFee         Decimal?        @db.Decimal(15, 2)
+  source         ContactSource   @default(MANUAL)
+  notes          String?
+  convertedAt    DateTime?       @db.Timestamptz(6)
+  archivedAt     DateTime?       @db.Timestamptz(6)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+
+  org        Org        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  properties Property[]
+
+  /// Target of same-org composite foreign keys.
+  @@unique([orgId, id])
+  @@unique([orgId, clientNumber])
+  @@index([orgId, kind, archivedAt])
+  @@index([orgId, status])
+  @@index([orgId, createdAt])
+}
+
+model Property {
+  id                  Int          @id @default(autoincrement())
+  orgId               Int
+  contactId           Int
+  /// CAD account number, normalized (no spaces). Unique per org and county, not globally.
+  accountNumber       String
+  countyId            Int
+  /// { line1, city, state, zip }
+  situsAddress        Json?
+  /// One-line situs address, for search and lists.
+  situsLine           String?
+  propertyType        PropertyType @default(RESIDENTIAL)
+  consultantUserId    Int?
+  contingencyPct      Decimal?     @db.Decimal(9, 4)
+  flatFee             Decimal?     @db.Decimal(15, 2)
+  bppFee              Decimal?     @db.Decimal(15, 2)
+  notes               String?
+  archivedAt          DateTime?    @db.Timestamptz(6)
+  /// True when archived because its contact was archived; restoring the contact restores only these.
+  archivedWithContact Boolean      @default(false)
+  createdAt           DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @db.Timestamptz(6)
+
+  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  // Composite FK: a property can only belong to a contact in the same org.
+  contact    Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  county     County          @relation(fields: [countyId], references: [id])
+  consultant User?           @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
+  taxYears   TaxYearRecord[]
+
+  @@unique([orgId, id])
+  @@unique([orgId, countyId, accountNumber])
+  @@index([orgId, contactId])
+  @@index([orgId, consultantUserId])
+  @@index([orgId, archivedAt])
+}
+
+/// Values and protest status for one property in one tax year. Fees are never stored here;
+/// they come from the fee engine and are snapshotted onto invoices (M4).
+model TaxYearRecord {
+  id                     Int          @id @default(autoincrement())
+  orgId                  Int
+  propertyId             Int
+  taxYear                Int
+  noticeLand             Decimal?     @db.Decimal(15, 2)
+  noticeImprovement      Decimal?     @db.Decimal(15, 2)
+  noticeMarket           Decimal?     @db.Decimal(15, 2)
+  noticeAppraised        Decimal?     @db.Decimal(15, 2)
+  finalLand              Decimal?     @db.Decimal(15, 2)
+  finalImprovement       Decimal?     @db.Decimal(15, 2)
+  finalMarket            Decimal?     @db.Decimal(15, 2)
+  finalAppraised         Decimal?     @db.Decimal(15, 2)
+  /// Combined tax rate as a percentage, e.g. 2.1500 means 2.15%.
+  taxRatePct             Decimal?     @db.Decimal(9, 4)
+  bppRenderedAt          DateTime?    @db.Date
+  bppFee                 Decimal?     @db.Decimal(15, 2)
+  underLitigation        Boolean      @default(false)
+  underArbitration       Boolean      @default(false)
+  homestead              Boolean      @default(false)
+  protestStage           ProtestStage @default(NOT_STARTED)
+  noticeReceivedAt       DateTime?    @db.Date
+  protestFiledAt         DateTime?    @db.Date
+  resultType             ResultType?
+  resultAt               DateTime?    @db.Date
+  /// Nullable; 0 is a real 0%.
+  contingencyPctOverride Decimal?     @db.Decimal(9, 4)
+  notes                  String?
+  createdAt              DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime     @updatedAt @db.Timestamptz(6)
+
+  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  property    Property            @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
+  stageEvents ProtestStageEvent[]
+
+  @@unique([orgId, id])
+  @@unique([propertyId, taxYear])
+  @@index([orgId, taxYear, protestStage])
+}
+
+/// Append-only stage history for a TaxYearRecord.
+model ProtestStageEvent {
+  id              Int           @id @default(autoincrement())
+  orgId           Int
+  taxYearRecordId Int
+  fromStage       ProtestStage?
+  toStage         ProtestStage
+  note            String?
+  actorUserId     Int?
+  at              DateTime      @default(now()) @db.Timestamptz(6)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+
+  org           Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  taxYearRecord TaxYearRecord @relation(fields: [orgId, taxYearRecordId], references: [orgId, id], onDelete: Cascade)
+  actor         User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, taxYearRecordId, at])
 }

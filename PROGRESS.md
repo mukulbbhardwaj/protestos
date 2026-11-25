@@ -19,6 +19,68 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 
 ---
 
+## M2: Contacts, properties and tax years (2026-11-25)
+
+### Done
+
+- **Schema:** Contact (prospects + clients), Property, County (reference), TaxYearRecord,
+  ProtestStageEvent. Composite foreign keys (`orgId`, id) make cross-firm links impossible at the
+  database level. RLS on every new tenant table; stage history and County are write-protected
+  for the tenant role. Trigram indexes for search.
+- **Backfill scripts (ADR 005):** `pnpm db:backfill counties|demo|sample|all [--reset]`. All 254
+  Texas counties; realistic sample data for both demo firms (Lone Star: 900 clients,
+  120 prospects, ~2,400 properties in 7 counties; Gulf Coast: 260 clients, 45 prospects,
+  ~650 properties), 2024–2026 values with homestead caps, and stage history.
+- **Fee engine** (`packages/shared/src/fees`): exact BigInt decimal maths, contingency/flat/BPP
+  resolution chain (tax year → property → client → firm), appraised or market basis,
+  current-year-only flat fee, fraction-rate warning, explanation lines. **100% coverage,
+  enforced in CI.**
+- **API:** contacts (list/search/filter/sort/paginate, prospect counts, create with client
+  number, update, convert, archive cascade, restore), properties (list with year/stage/county/
+  type/consultant filters, create, update, archive/restore, detail with fee context and stage
+  history), tax years (create, update, stage change), bulk assign consultant / set stage /
+  roll over, global search, counties, dashboard stats. Every change is audited.
+- **Web:** Clients and Prospects lists (filters in the URL, status tabs), client detail
+  (overview form with fee terms, properties, activity), Properties list with multi-select bulk
+  actions, property detail with a tax-year selector, value editor (formatted money inputs,
+  change column), **live fee preview** from the shared engine, stage control and per-year
+  history. Cmd/Ctrl+K search. Dashboard with real counts and a stage breakdown.
+- **Settings:** savings basis (appraised/market), current tax year, flat fee current-year-only.
+- **Landing page** at `/` for logged-out visitors (always light theme).
+- Wider content area (96rem) for wide screens.
+
+### Verified
+
+- 165 unit/integration tests (api 110 incl. isolation cases for all 32 tenant routes;
+  shared 33; db 11; web 7; providers 2; worker 2) and 5 Playwright tests (including create
+  client → add property → enter values → fee preview shows $258.00 → save).
+- lint, typecheck, format, build green. Screenshots checked at 1440 and 2000px, light and dark.
+
+### M2 acceptance criteria
+
+- Create a client with 3 properties, enter notice and final values, see a correct fee
+  preview: ✅ (e2e covers one property; the API tests cover several).
+- Fee engine coverage is 100%: ✅ (enforced threshold).
+
+### Not done yet (remaining M2 / plan section 11 polish)
+
+- CSV/XLSX export of lists, column picker, "select all matching the filter" for bulk actions
+  (bulk works on selected rows only).
+- Prospect kanban view (plan puts it in M8).
+- Client statement PDF (needs invoices, M4).
+- Search performance has not been measured at 50k rows (M10 perf pass).
+
+### Decisions / assumptions to confirm
+
+1. **BPP fee** applies to a tax year only when that year has a rendition date or its own BPP
+   fee (from the reference app's per-year "BPP invoice"). It then resolves tax year →
+   property → client → firm.
+2. Converting a prospect sets status SIGNED and keeps the original `convertedAt` if one exists.
+3. Account numbers are stored trimmed, without spaces, upper-case. County-specific formatting
+   (dashes) is kept as entered; M3's import normalizers will handle per-county rules.
+
+---
+
 ## M1: Auth, orgs and tenancy (2026-11-25)
 
 ### Done

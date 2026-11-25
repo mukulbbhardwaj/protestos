@@ -4,10 +4,19 @@ import type { PrismaClient } from './generated/prisma/client.js';
  * Models with an `orgId` column. `forOrg` injects the org into every query on them.
  * test/tenant-tables.test.ts fails if a table with `orgId` is missing from this list.
  */
-export const TENANT_MODELS = ['Membership', 'Invitation', 'OrgSetting', 'AuditLog'] as const;
+export const TENANT_MODELS = [
+  'Membership',
+  'Invitation',
+  'OrgSetting',
+  'AuditLog',
+  'Contact',
+  'Property',
+  'TaxYearRecord',
+  'ProtestStageEvent',
+] as const;
 
-/** Readable through `forOrg` (filtered by RLS) but never writable by tenant code. */
-const READ_ONLY_MODELS = new Set(['User']);
+/** Readable through `forOrg` (User filtered by RLS; County is shared reference data) but never writable. */
+const READ_ONLY_MODELS = new Set(['User', 'County']);
 
 const READ_OPS = new Set([
   'findUnique',

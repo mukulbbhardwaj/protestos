@@ -30,12 +30,12 @@ On first run `pnpm dev`:
 1. creates `.env` from `.env.example`
 2. starts Postgres in Docker (host port **54329**) and waits for it to be healthy
 3. generates the Prisma client and applies migrations (dev and test databases)
-4. loads demo data into an empty dev database
+4. backfills the 254 Texas counties plus demo firms, users and sample data (skips what exists)
 5. starts the API (http://localhost:3001), the worker, and the web app (http://localhost:5173)
 
 ### Demo logins (local only)
 
-Open http://localhost:5173 and log in with password `demo-password`:
+Open http://localhost:5173 (landing page) → **Log in**, password `demo-password`:
 
 | Email              | Role                                                                               |
 | ------------------ | ---------------------------------------------------------------------------------- |
