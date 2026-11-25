@@ -21,7 +21,7 @@
     "db:migrate": "pnpm --filter @app/db migrate:dev",
     "db:generate": "pnpm --filter @app/db generate",
     "secrets:scan": "gitleaks dir . --config .gitleaks.toml --redact",
-    "db:seed": "pnpm --filter @app/db seed"
+    "db:backfill": "pnpm --filter @app/db backfill"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -13,6 +13,7 @@ import {
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandling, registerOriginCheck } from './plugins/errors.js';
 import { authRoutes } from './routes/auth.js';
+import { countyRoutes } from './routes/counties.js';
 import { devRoutes } from './routes/dev.js';
 import { healthRoutes } from './routes/health.js';
 import { onboardingRoutes } from './routes/onboarding.js';
@@ -72,6 +73,7 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
   });
   await app.register(authRoutes, { services, rateLimitMax: deps.authRateLimitPerMin ?? 10 });
   await app.register(onboardingRoutes, { services });
+  await app.register(countyRoutes, { services });
   await app.register(tenantRoutes, { services, prefix: '/orgs/:orgSlug' });
   if (deps.mail instanceof DevFileMailProvider) {
     await app.register(devRoutes, { mailbox: deps.mail });

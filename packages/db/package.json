@@ -24,7 +24,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "migrate:test": "node scripts/migrate-test.mjs",
-    "seed": "tsx --conditions=development prisma/seed.ts"
+    "backfill": "tsx --conditions=development scripts/backfill/index.ts"
   },
   "dependencies": {
     "@app/shared": "workspace:*",

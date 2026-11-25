@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ORG_ROLES } from '../roles.js';
 import { DecimalString, Email, percentString } from './common.js';
+import { DashboardStats } from './crm.js';
 
 export const CreateOrgInput = z.object({
   name: z.string().trim().min(2, 'Enter your firm name.').max(120),
@@ -28,6 +29,9 @@ export const OrgSettings = z.object({
   invoicePrefix: z.string(),
   nextInvoiceNumber: z.number(),
   invoiceDueDays: z.number(),
+  taxYearDefault: z.number().nullable(),
+  savingsBasis: z.enum(['APPRAISED', 'MARKET']),
+  flatFeeCurrentYearOnly: z.boolean(),
   plan: z.string(),
   planStatus: z.string(),
   trialEndsAt: z.string().nullable(),
@@ -56,6 +60,9 @@ export const UpdateOrgSettingsInput = z
     invoicePrefix: z.string().trim().max(12),
     nextInvoiceNumber: z.coerce.number().int().min(1),
     invoiceDueDays: z.coerce.number().int().min(0).max(365),
+    taxYearDefault: z.coerce.number().int().min(2000).max(2100).nullable(),
+    savingsBasis: z.enum(['APPRAISED', 'MARKET']),
+    flatFeeCurrentYearOnly: z.boolean(),
   })
   .partial();
 export type UpdateOrgSettingsInput = z.infer<typeof UpdateOrgSettingsInput>;
@@ -120,6 +127,7 @@ export const OrgOverview = z.object({
   org: z.object({ id: z.number(), name: z.string(), slug: z.string() }),
   role: z.enum(ORG_ROLES),
   plan: z.object({ status: z.string(), trialEndsAt: z.string().nullable() }),
+  stats: z.lazy(() => DashboardStats),
   counts: z.object({ members: z.number(), pendingInvitations: z.number() }),
   checklist: z.object({
     importedData: z.boolean(),

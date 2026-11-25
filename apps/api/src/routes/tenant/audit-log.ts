@@ -8,6 +8,8 @@ const Query = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   /** id of the last row from the previous page */
   before: z.coerce.bigint().optional(),
+  entityType: z.string().max(40).optional(),
+  entityId: z.string().max(40).optional(),
 });
 
 export const auditLogRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -24,9 +26,13 @@ export const auditLogRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => {
-      const { limit, before } = request.query;
+      const { limit, before, entityType, entityId } = request.query;
       const rows = await tenantOf(request).db.auditLog.findMany({
-        where: before ? { id: { lt: before } } : {},
+        where: {
+          ...(before ? { id: { lt: before } } : {}),
+          ...(entityType ? { entityType } : {}),
+          ...(entityId ? { entityId } : {}),
+        },
         include: { actor: { select: { name: true } } },
         orderBy: { id: 'desc' },
         take: limit + 1,
