@@ -1,8 +1,13 @@
-import { SENTRY_DATA_COLLECTION } from '@app/shared';
+import { APP_CONFIG, SENTRY_DATA_COLLECTION } from '@app/shared';
 import * as Sentry from '@sentry/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { RouterProvider } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { ApiError } from '@/lib/api';
+import { applyTheme } from '@/lib/theme';
+import { router } from '@/router';
 import './index.css';
 
 if (import.meta.env.VITE_SENTRY_DSN) {
@@ -13,14 +18,26 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 
-// Follow the OS theme until a user preference exists (M1 app shell).
-document.documentElement.classList.toggle(
-  'dark',
-  window.matchMedia('(prefers-color-scheme: dark)').matches,
-);
+document.title = APP_CONFIG.displayName;
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme());
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't retry what won't change on retry (auth, permissions, not found).
+      retry: (count, error) =>
+        !(error instanceof ApiError && error.status >= 400 && error.status < 500) && count < 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+      <Toaster richColors position="bottom-right" />
+    </QueryClientProvider>
   </StrictMode>,
 );

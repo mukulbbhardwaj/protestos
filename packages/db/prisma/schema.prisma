@@ -27,6 +27,11 @@ enum MembershipStatus {
   DISABLED
 }
 
+enum AuthTokenKind {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -70,19 +75,91 @@ model Org {
 
   memberships Membership[]
   auditLogs   AuditLog[]
+  invitations Invitation[]
+  settings    OrgSetting[]
 }
 
 model User {
   id              Int       @id @default(autoincrement())
   email           String    @unique
   name            String
+  /// scrypt hash (see @app/shared/node password.ts). Never selected by tenant code.
+  passwordHash    String?
   emailVerifiedAt DateTime? @db.Timestamptz(6)
   isSuperAdmin    Boolean   @default(false)
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
 
-  memberships Membership[]
-  auditLogs   AuditLog[]
+  memberships     Membership[]
+  auditLogs       AuditLog[]
+  sessions        Session[]
+  authTokens      AuthToken[]
+  invitationsSent Invitation[]
+}
+
+/// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
+model Session {
+  id         String   @id
+  userId     Int
+  expiresAt  DateTime @db.Timestamptz(6)
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(6)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Single-use email verification and password reset tokens (stored hashed).
+model AuthToken {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  kind      AuthTokenKind
+  tokenHash String        @unique
+  expiresAt DateTime      @db.Timestamptz(6)
+  usedAt    DateTime?     @db.Timestamptz(6)
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+}
+
+model Invitation {
+  id          Int       @id @default(autoincrement())
+  orgId       Int
+  email       String
+  role        OrgRole
+  tokenHash   String    @unique
+  expiresAt   DateTime  @db.Timestamptz(6)
+  acceptedAt  DateTime? @db.Timestamptz(6)
+  revokedAt   DateTime? @db.Timestamptz(6)
+  invitedById Int?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+
+  org       Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, email])
+}
+
+/// Non-secret per-org settings. Secrets live in env/KMS, never here.
+model OrgSetting {
+  id        Int      @id @default(autoincrement())
+  orgId     Int
+  key       String
+  value     Json
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
 }
 
 model Membership {

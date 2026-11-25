@@ -19,6 +19,73 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 
 ---
 
+## M1: Auth, orgs and tenancy (2026-11-25)
+
+### Done
+
+- **Auth (in-house, ADR 004):** sign up, email verification, log in/out, forgot/reset password,
+  resend verification. scrypt passwords, hashed session tokens in httpOnly SameSite=Lax cookies,
+  rate limits on auth endpoints, Origin check on writes.
+- **Orgs:** create a firm (verified email required; creator becomes OWNER; 14-day trial
+  placeholder), unique slugs, reserved words blocked.
+- **Team:** invitations (email + role, 7-day single-use link, resend, revoke, accept by the
+  invited email only), role changes, remove/restore access. Owners-only rules for owners;
+  no self-edits.
+- **Roles:** STAFF and READ_ONLY get 403 on settings, finance, invitations and the audit log.
+  READ_ONLY can't make any change. Guards run before body validation.
+- **Tenant isolation (ADR 003):** `forOrg` data layer, Postgres RLS via an `app_tenant` role,
+  and the isolation harness covering every `/orgs/:orgSlug` route.
+- **Audit log:** org creation, settings changes (field-level before/after diff), membership
+  and invitation changes. Append-only at the database level.
+- **Settings API + page:** firm profile, address, phone, website, timezone, brand color, fee
+  defaults, invoice prefix/next number/due days.
+- **Finance stub:** `GET /finance/summary` (ADMIN+) so role gating is real now; figures arrive
+  in M4/M7.
+- **`packages/providers`:** `MailProvider` interface, `MemoryMailProvider` (tests) and
+  `DevFileMailProvider` (local) with a **dev mailbox** page at `/dev/mailbox`.
+- **Web app:** shadcn-style UI (Radix + Tailwind tokens), light/dark/system theme, sidebar
+  with every module (role-gated, milestone badges), org switcher, user menu, Cmd/Ctrl+K search
+  placeholder, dashboard with onboarding checklist and trial banner, settings (General, Team,
+  Audit log), finance page, "coming soon" pages describing each later module, auth pages,
+  onboarding, invitation acceptance. Usable at tablet width (drawer sidebar).
+- **Demo seed** (`pnpm db:seed`, run by `pnpm dev`): two firms and users in every role.
+  Password `demo-password`.
+
+### Verified locally
+
+- 92 unit/integration tests: api 57 (auth, orgs, roles, invitations, isolation), db 11 (forOrg,
+  RLS, table registry), shared 13, web 7, providers 2, worker 2.
+- 3 Playwright tests: owner dashboard + org switch + settings save + audit; staff blocked from
+  finance/settings; sign-up → confirm email via dev mailbox → create firm → invite.
+- lint, typecheck, format, build all green.
+
+### M1 acceptance criteria
+
+- Two orgs created through the UI cannot see each other's data: ✅ (isolation harness + RLS tests).
+- A STAFF user gets 403 on the finance and settings APIs: ✅ (`orgs.test.ts`, plus the UI hides them).
+- Isolation tests pass: ✅
+
+### Deferred / notes
+
+- Production `MailProvider` is not configured; the API refuses to start with
+  `NODE_ENV=production` until M5 adds Postmark or Brevo.
+- Logo upload waits for file storage (S3/R2 interface), first needed for PDFs in M4.
+- A change and its audit row are written in separate transactions (see ADR 003).
+- No super-admin UI yet (M9). `User.isSuperAdmin` exists but grants nothing so far.
+- Seat limits are not enforced on invitations yet (M9).
+- Session cleanup: expired sessions are deleted when used; a periodic sweep job can join the
+  worker later.
+
+### Open questions for Mukul
+
+1. Hosting and email provider (from M0): still open; email is needed by M5.
+2. A user who belongs to several firms lands on the firm they joined first, then the last one
+   they opened. OK?
+3. The dev "demo accounts" box shows only in local development builds. Do you also want a
+   demo firm on staging for sales calls? (Not built.)
+
+---
+
 ## M0: Repo foundation (2026-11-25)
 
 ### Done

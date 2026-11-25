@@ -29,8 +29,23 @@ On first run `pnpm dev`:
 
 1. creates `.env` from `.env.example`
 2. starts Postgres in Docker (host port **54329**) and waits for it to be healthy
-3. generates the Prisma client and applies migrations
-4. starts the API (http://localhost:3001), the worker, and the web app (http://localhost:5173)
+3. generates the Prisma client and applies migrations (dev and test databases)
+4. loads demo data into an empty dev database
+5. starts the API (http://localhost:3001), the worker, and the web app (http://localhost:5173)
+
+### Demo logins (local only)
+
+Open http://localhost:5173 and log in with password `demo-password`:
+
+| Email              | Role                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `owner@demo.test`  | Owner of _Lone Star Demo_ and admin of _Gulf Coast Demo_ (shows the firm switcher) |
+| `admin@demo.test`  | Admin                                                                              |
+| `staff@demo.test`  | Staff (no finance or settings)                                                     |
+| `viewer@demo.test` | Read only                                                                          |
+
+Emails (verification, password reset, invitations) are not sent locally. They appear in the
+**dev mailbox** at http://localhost:5173/dev/mailbox.
 
 The web dev server proxies `/api/*` to the API so the browser sees a single origin.
 
@@ -42,13 +57,14 @@ apps/
   worker/    pg-boss job runner
   web/       React 18 + Vite + Tailwind
 packages/
-  shared/    product config, roles, zod schemas, (later) fee engine and formatters
-  db/        Prisma schema, migrations, client factory, (M1) org-scoped data layer
+  shared/    product config, roles, zod schemas shared by web and api, password/token helpers
+  db/        Prisma schema, migrations, forOrg tenant layer, demo seed
+  providers/ MailProvider (dev file mailbox, in-memory for tests); later signature, storage, billing
 docs/
   BUILD_PLAN.md   decisions/
 ```
 
-`packages/pdf` and `packages/providers` arrive in the milestones that need them.
+`packages/pdf` arrives with invoices (M4).
 
 Workspace packages export TypeScript source under the `development` export
 condition (used by `tsx`, Vite, Vitest and `tsc`) and compiled `dist/` for
@@ -69,9 +85,11 @@ production. See ADR 002.
 
 ## Rules that are enforced
 
-- **Tenant isolation.** Route code may not import the raw Prisma client
-  (`@app/db/raw`, `@prisma/client`, generated client). ESLint fails the build.
-  The org-scoped layer, Postgres RLS and isolation tests arrive in M1.
+- **Tenant isolation** (ADR 003). Tenant routes use only `request.tenant.db` (`forOrg`);
+  ESLint bans the raw Prisma client in routes and the web app; Postgres RLS backs it up; and
+  `apps/api/test/isolation.test.ts` fails if any `/orgs/:orgSlug` route lacks a cross-org test.
+  New tenant table checklist: `orgId` column, `TENANT_MODELS` entry, RLS policy in the
+  migration, isolation cases.
 - **No secrets in git.** `.env*` is ignored except `.env.example`; gitleaks runs
   on every commit (lefthook) and in CI.
 - **Exact versions.** `.npmrc` sets `save-exact=true`.

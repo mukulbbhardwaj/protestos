@@ -1,6 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import type { AppDeps } from '../app.js';
 
 const HealthResponse = z.object({
   status: z.enum(['ok', 'degraded']),
@@ -8,7 +7,12 @@ const HealthResponse = z.object({
   version: z.string(),
 });
 
-export const healthRoutes: FastifyPluginAsyncZod<AppDeps> = async (app, deps) => {
+export interface HealthOptions {
+  pingDatabase: () => Promise<boolean>;
+  version: string;
+}
+
+export const healthRoutes: FastifyPluginAsyncZod<HealthOptions> = async (app, deps) => {
   app.get(
     '/health',
     { schema: { response: { 200: HealthResponse, 503: HealthResponse } } },

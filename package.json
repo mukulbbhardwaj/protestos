@@ -20,7 +20,8 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @app/db migrate:dev",
     "db:generate": "pnpm --filter @app/db generate",
-    "secrets:scan": "gitleaks dir . --config .gitleaks.toml --redact"
+    "secrets:scan": "gitleaks dir . --config .gitleaks.toml --redact",
+    "db:seed": "pnpm --filter @app/db seed"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

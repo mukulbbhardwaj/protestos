@@ -58,9 +58,12 @@ export default tseslint.config(
   {
     files: ['apps/**/*.{ts,tsx}'],
     ignores: [
-      // Allowed: process entry points that construct the client, and tests.
+      // Allowed: process entry points and wiring that construct the client, system services
+      // (auth, onboarding), the worker, and tests. Routes and plugins are not exempt: tenant
+      // routes get `request.tenant.db` (forOrg) and nothing else.
       'apps/api/src/server.ts',
-      'apps/api/src/plugins/db.ts',
+      'apps/api/src/app.ts',
+      'apps/api/src/services/**',
       'apps/api/test/**',
       'apps/worker/src/**',
     ],
