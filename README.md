@@ -93,3 +93,18 @@ production. See ADR 002.
 - **No secrets in git.** `.env*` is ignored except `.env.example`; gitleaks runs
   on every commit (lefthook) and in CI.
 - **Exact versions.** `.npmrc` sets `save-exact=true`.
+
+## Hosting the landing page (Vercel)
+
+The public landing page is deployed on its own, without the API, at
+**https://protestos.vercel.app** (`vercel.json` at the repo root).
+
+- `pnpm --filter @app/web build:landing` builds with `VITE_SITE_MODE=landing`: only the landing
+  page is bundled, and its buttons say "Request early access" (a `mailto:`) instead of
+  sign-up/log-in.
+- Set the early-access address with the `VITE_EARLY_ACCESS_EMAIL` environment variable in the
+  Vercel project (Production). It defaults to the placeholder `hello@example.com`.
+- Deploy by hand: `vercel deploy --prod` from the repo root. `.vercelignore` keeps `.env` and
+  local data out of uploads.
+- When the API is hosted, switch the Vercel build to the full app (`build` instead of
+  `build:landing`) and the landing page gets its sign-up and log-in buttons back.

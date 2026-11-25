@@ -7,7 +7,6 @@ import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ApiError } from '@/lib/api';
 import { applyTheme } from '@/lib/theme';
-import { router } from '@/router';
 import './index.css';
 
 if (import.meta.env.VITE_SENTRY_DSN) {
@@ -32,6 +31,12 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Vite inlines VITE_SITE_MODE at build time, so a landing build never bundles the app.
+const { router } =
+  import.meta.env.VITE_SITE_MODE === 'landing'
+    ? await import('@/landing-router')
+    : await import('@/router');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

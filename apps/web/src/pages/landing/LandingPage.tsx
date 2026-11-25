@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
+import { EARLY_ACCESS_HREF, LANDING_ONLY } from '@/lib/site';
 import { applyTheme } from '@/lib/theme';
 
 /** The marketing page is always light, whatever the app theme is. */
@@ -12,6 +13,34 @@ function useLightPage() {
     document.documentElement.classList.remove('dark');
     return () => applyTheme();
   }, []);
+}
+
+/**
+ * The main call to action. With the app live it starts a trial; on a landing-only deployment
+ * (no API yet) it asks for early access by email instead.
+ */
+function PrimaryCta({
+  children,
+  className,
+  variant,
+}: {
+  children: ReactNode;
+  className?: string;
+  variant?: 'secondary';
+}) {
+  return (
+    <Button asChild size="lg" variant={variant} className={className}>
+      {LANDING_ONLY ? (
+        <a href={EARLY_ACCESS_HREF}>
+          Request early access <ArrowRight />
+        </a>
+      ) : (
+        <Link to="/signup">
+          {children} <ArrowRight />
+        </Link>
+      )}
+    </Button>
+  );
 }
 
 function Container({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -117,16 +146,24 @@ export function LandingPage() {
         <Container className="flex h-20 items-center justify-between">
           <Logo className="text-base" />
           <div className="flex items-center gap-1 sm:gap-3">
-            <Button
-              asChild
-              variant="ghost"
-              className="text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Link to="/login">Log in</Link>
-            </Button>
-            <Button asChild className="rounded-full px-5">
-              <Link to="/signup">Start free</Link>
-            </Button>
+            {LANDING_ONLY ? (
+              <Button asChild className="rounded-full px-5">
+                <a href={EARLY_ACCESS_HREF}>Get early access</a>
+              </Button>
+            ) : (
+              <>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                >
+                  <Link to="/login">Log in</Link>
+                </Button>
+                <Button asChild className="rounded-full px-5">
+                  <Link to="/signup">Start free</Link>
+                </Button>
+              </>
+            )}
           </div>
         </Container>
       </header>
@@ -152,11 +189,9 @@ export function LandingPage() {
               protest season instead of spreadsheets.
             </p>
             <div className="mt-10 flex flex-wrap justify-center gap-3">
-              <Button asChild size="lg" className="h-12 rounded-full px-7 text-base">
-                <Link to="/signup">
-                  Start your free trial <ArrowRight />
-                </Link>
-              </Button>
+              <PrimaryCta className="h-12 rounded-full px-7 text-base">
+                Start your free trial
+              </PrimaryCta>
               <Button
                 asChild
                 size="lg"
@@ -166,7 +201,9 @@ export function LandingPage() {
                 <a href="#how">See how it works</a>
               </Button>
             </div>
-            <p className="mt-5 text-sm text-slate-500">14 days free · No card needed</p>
+            <p className="mt-5 text-sm text-slate-500">
+              {LANDING_ONLY ? 'Opening to Texas firms soon' : '14 days free · No card needed'}
+            </p>
             <ProductPreview />
           </Container>
         </section>
@@ -276,18 +313,16 @@ export function LandingPage() {
                 Ready for next season?
               </h2>
               <p className="relative mx-auto mt-5 max-w-lg text-lg text-blue-50">
-                Bring your spreadsheet. Be up and running this afternoon.
+                {LANDING_ONLY
+                  ? 'We’re onboarding our first firms now. Tell us about yours.'
+                  : 'Bring your spreadsheet. Be up and running this afternoon.'}
               </p>
-              <Button
-                asChild
-                size="lg"
+              <PrimaryCta
                 variant="secondary"
                 className="relative mt-10 h-12 rounded-full bg-white px-8 text-base text-blue-700 hover:bg-blue-50"
               >
-                <Link to="/signup">
-                  Start free trial <ArrowRight />
-                </Link>
-              </Button>
+                Start free trial
+              </PrimaryCta>
             </div>
           </Container>
         </section>
