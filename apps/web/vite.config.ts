@@ -16,6 +16,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Lets a tunnel reach the dev server: ngrok (free static domains) or a Cloudflare quick tunnel.
+    allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.trycloudflare.com'],
     // Same-origin API in dev so session cookies (SameSite=Lax) work without CORS.
     proxy: {
       '/api': { target: apiTarget, rewrite: (path) => path.replace(/^\/api/, '') },

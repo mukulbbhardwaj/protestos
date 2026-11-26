@@ -25,6 +25,8 @@ export interface AppDeps {
   prisma: PrismaClient;
   mail: MailProvider;
   appUrl: string;
+  /** More origins allowed to send writes (e.g. a tunnel URL in front of the dev server). */
+  extraAllowedOrigins?: string[];
   version: string;
   cookieSecure?: boolean;
   sessionTtlDays?: number;
@@ -58,7 +60,7 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
 
   registerErrorHandling(app);
   if (deps.sentry) Sentry.setupFastifyErrorHandler(app);
-  registerOriginCheck(app, deps.appUrl);
+  registerOriginCheck(app, [deps.appUrl, ...(deps.extraAllowedOrigins ?? [])]);
   await app.register(rateLimit, { global: false });
 
   const services = createServices({

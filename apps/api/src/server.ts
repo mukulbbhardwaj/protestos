@@ -24,6 +24,7 @@ const app = await buildApp(
     prisma,
     mail,
     appUrl: env.APP_URL,
+    extraAllowedOrigins: env.EXTRA_ALLOWED_ORIGINS,
     version: env.APP_VERSION,
     cookieSecure: env.COOKIE_SECURE,
     sessionTtlDays: env.SESSION_TTL_DAYS,

@@ -51,12 +51,12 @@ export function registerErrorHandling(app: FastifyInstance) {
  * CSRF defence alongside SameSite=Lax cookies: state-changing requests that carry an
  * Origin header must come from the web app.
  */
-export function registerOriginCheck(app: FastifyInstance, allowedOrigin: string) {
-  const allowed = new URL(allowedOrigin).origin;
+export function registerOriginCheck(app: FastifyInstance, allowedOrigins: string[]) {
+  const allowed = new Set(allowedOrigins.map((o) => new URL(o).origin));
   app.addHook('onRequest', async (request, reply) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
     const origin = request.headers.origin;
-    if (origin && origin !== allowed) {
+    if (origin && !allowed.has(origin)) {
       return reply.code(403).send({
         error: { code: 'BAD_ORIGIN', message: 'This request came from an unexpected site.' },
       });

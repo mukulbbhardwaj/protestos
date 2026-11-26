@@ -8,6 +8,19 @@ const EnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3001),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   APP_URL: z.url().default('http://localhost:5173'),
+  /** Comma-separated extra origins allowed to send writes, e.g. a Cloudflare tunnel URL. */
+  EXTRA_ALLOWED_ORIGINS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+    )
+    .pipe(z.array(z.url())),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   COOKIE_SECURE: z.stringbool().optional(),
   AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
