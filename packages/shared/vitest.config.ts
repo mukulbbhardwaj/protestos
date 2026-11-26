@@ -17,6 +17,7 @@ export default defineConfig({
         // Allocation, derived status and aging decide what clients owe.
         'src/billing/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         'src/email/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        'src/documents/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
   },

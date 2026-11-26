@@ -3,6 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 // Uses the demo data from `pnpm db:seed` (run by `pnpm dev`) and the dev mailbox.
 const PASSWORD = 'demo-password';
 
+// These tests log in (and sign up) themselves.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 async function login(page: Page, email: string) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);

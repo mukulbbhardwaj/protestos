@@ -168,7 +168,23 @@ enum PaymentMethod {
   OTHER
 }
 
+enum DocumentKind {
+  ENGAGEMENT_CONTRACT
+  /// Texas Form 50-162, Appointment of Agent for Property Tax Matters.
+  AOA_50_162
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  DECLINED
+  VOIDED
+}
+
 enum EmailTemplateKey {
+  DOC_REQUEST
   INVOICE
   INVOICE_ZERO_SAVINGS
   PAYMENT_RECEIPT
@@ -224,6 +240,13 @@ model Org {
   /// The flat fee is only charged on the current billing year (reference-app rule).
   flatFeeCurrentYearOnly Boolean         @default(true)
   invoiceGrouping        InvoiceGrouping @default(CLIENT_YEAR)
+  /// Form 50-162 agent section (BUILD_PLAN 8.8): the person or firm appointed.
+  agentName              String?
+  agentTitle             String?
+  /// TDLR property tax consultant registration number.
+  agentLicense           String?
+  /// Allow sending a document again after it was signed.
+  allowResendSigned      Boolean         @default(false)
   /// Printed on invoices: Zelle, check address, ACH details.
   paymentInstructions    String?
   stripeCustomerId       String?         @unique
@@ -235,22 +258,26 @@ model Org {
   createdAt              DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime        @updatedAt @db.Timestamptz(6)
 
-  memberships    Membership[]
-  auditLogs      AuditLog[]
-  invitations    Invitation[]
-  settings       OrgSetting[]
-  contacts       Contact[]
-  properties     Property[]
-  taxYears       TaxYearRecord[]
-  stageEvents    ProtestStageEvent[]
-  imports        ImportJob[]
-  importRows     ImportRow[]
-  invoices       Invoice[]
-  invoiceLines   InvoiceLine[]
-  payments       Payment[]
-  allocations    PaymentAllocation[]
-  emailTemplates EmailTemplate[]
-  deliveries     EmailDelivery[]
+  memberships        Membership[]
+  auditLogs          AuditLog[]
+  invitations        Invitation[]
+  settings           OrgSetting[]
+  contacts           Contact[]
+  properties         Property[]
+  taxYears           TaxYearRecord[]
+  stageEvents        ProtestStageEvent[]
+  imports            ImportJob[]
+  importRows         ImportRow[]
+  invoices           Invoice[]
+  invoiceLines       InvoiceLine[]
+  payments           Payment[]
+  allocations        PaymentAllocation[]
+  emailTemplates     EmailTemplate[]
+  deliveries         EmailDelivery[]
+  documentTemplates  DocumentTemplate[]
+  documents          Document[]
+  documentProperties DocumentProperty[]
+  envelopes          SignatureEnvelope[]
 }
 
 model User {
@@ -264,18 +291,21 @@ model User {
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
 
-  memberships     Membership[]
-  auditLogs       AuditLog[]
-  sessions        Session[]
-  authTokens      AuthToken[]
-  invitationsSent Invitation[]
-  consultantFor   Property[]
-  stageEvents     ProtestStageEvent[]
-  imports         ImportJob[]
-  invoicesCreated Invoice[]
-  paymentsCreated Payment[]
-  templatesEdited EmailTemplate[]
-  deliveriesSent  EmailDelivery[]
+  memberships             Membership[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  authTokens              AuthToken[]
+  invitationsSent         Invitation[]
+  consultantFor           Property[]
+  stageEvents             ProtestStageEvent[]
+  imports                 ImportJob[]
+  invoicesCreated         Invoice[]
+  paymentsCreated         Payment[]
+  templatesEdited         EmailTemplate[]
+  deliveriesSent          EmailDelivery[]
+  documentTemplatesEdited DocumentTemplate[]
+  documentsCreated        Document[]
+  envelopesSent           SignatureEnvelope[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -503,11 +533,13 @@ model Contact {
   createdAt      DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
 
-  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
   properties Property[]
   invoices   Invoice[]
   payments   Payment[]
   deliveries EmailDelivery[]
+  documents  Document[]
+  envelopes  SignatureEnvelope[]
 
   /// Target of same-org composite foreign keys.
   @@unique([orgId, id])
@@ -545,13 +577,14 @@ model Property {
   createdAt           DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime     @updatedAt @db.Timestamptz(6)
 
-  org          Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org          Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
   // Composite FK: a property can only belong to a contact in the same org.
-  contact      Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
-  county       County          @relation(fields: [countyId], references: [id])
-  consultant   User?           @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
+  contact      Contact            @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  county       County             @relation(fields: [countyId], references: [id])
+  consultant   User?              @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
   taxYears     TaxYearRecord[]
   invoiceLines InvoiceLine[]
+  documents    DocumentProperty[]
 
   @@unique([orgId, id])
   @@unique([orgId, countyId, accountNumber])
@@ -821,6 +854,7 @@ model EmailDelivery {
   contactId         Int
   invoiceId         Int?
   paymentId         Int?
+  envelopeId        Int?
   toEmail           String
   subject           String?
   provider          String?
@@ -840,13 +874,111 @@ model EmailDelivery {
   createdAt         DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
 
-  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  contact   Contact  @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
-  invoice   Invoice? @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Cascade)
-  payment   Payment? @relation(fields: [orgId, paymentId], references: [orgId, id], onDelete: Cascade)
-  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  org       Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact   Contact            @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  invoice   Invoice?           @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Cascade)
+  payment   Payment?           @relation(fields: [orgId, paymentId], references: [orgId, id], onDelete: Cascade)
+  envelope  SignatureEnvelope? @relation(fields: [orgId, envelopeId], references: [orgId, id], onDelete: Cascade)
+  createdBy User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@unique([orgId, idempotencyKey])
   @@index([orgId, invoiceId])
   @@index([orgId, status])
+}
+
+/// The firm's engagement contract wording (BUILD_PLAN 5.7). Plain text with placeholders;
+/// `version` goes up on every save and is recorded on each document made from it.
+model DocumentTemplate {
+  id          Int          @id @default(autoincrement())
+  orgId       Int
+  kind        DocumentKind
+  name        String
+  body        String
+  version     Int          @default(1)
+  updatedById Int?
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+
+  org       Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, kind])
+}
+
+/// One signing request: one signer, one or more documents (M6).
+model SignatureEnvelope {
+  id          Int            @id @default(autoincrement())
+  orgId       Int
+  contactId   Int
+  provider    String
+  /// The provider's envelope id; webhooks find the envelope (and its org) by this.
+  providerRef String         @unique
+  /// Mock provider only: the secret in the signing link (/sign/:token).
+  signToken   String?        @unique
+  status      DocumentStatus @default(SENT)
+  signerName  String
+  signerEmail String
+  events      Json           @default("[]")
+  createdById Int?
+  sentAt      DateTime       @default(now()) @db.Timestamptz(6)
+  viewedAt    DateTime?      @db.Timestamptz(6)
+  completedAt DateTime?      @db.Timestamptz(6)
+  voidedAt    DateTime?      @db.Timestamptz(6)
+  voidReason  String?
+  createdAt   DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(6)
+
+  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact    Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  createdBy  User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  documents  Document[]
+  deliveries EmailDelivery[]
+
+  @@unique([orgId, id])
+  @@index([orgId, contactId])
+}
+
+model Document {
+  id              Int            @id @default(autoincrement())
+  orgId           Int
+  contactId       Int
+  envelopeId      Int?
+  kind            DocumentKind
+  status          DocumentStatus @default(DRAFT)
+  title           String
+  /// Protest year the appointment or contract is for.
+  taxYear         Int?
+  templateVersion Int?
+  unsignedKey     String
+  signedKey       String?
+  /// Signed on paper and uploaded by staff.
+  signedOffline   Boolean        @default(false)
+  signedAt        DateTime?      @db.Timestamptz(6)
+  createdById     Int?
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(6)
+
+  org        Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact    Contact            @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  envelope   SignatureEnvelope? @relation(fields: [orgId, envelopeId], references: [orgId, id], onDelete: NoAction)
+  createdBy  User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  properties DocumentProperty[]
+
+  @@unique([orgId, id])
+  @@index([orgId, contactId])
+  @@index([orgId, status])
+}
+
+/// A 50-162 can list several accounts of the same owner (BUILD_PLAN 5.7).
+model DocumentProperty {
+  orgId      Int
+  documentId Int
+  propertyId Int
+
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [orgId, documentId], references: [orgId, id], onDelete: Cascade)
+  property Property @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
+
+  @@id([documentId, propertyId])
+  @@index([orgId, propertyId])
 }

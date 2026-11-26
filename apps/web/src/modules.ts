@@ -122,7 +122,6 @@ export const MODULES: ModuleDef[] = [
     icon: FileSignature,
     minRole: 'READ_ONLY',
     group: 'Work',
-    comingIn: 'M6',
     summary: 'Engagement contracts and Form 50-162, signed electronically.',
     features: [
       'Contract built from your firm’s template',

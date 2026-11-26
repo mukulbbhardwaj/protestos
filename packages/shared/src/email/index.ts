@@ -2,6 +2,7 @@
 // HTML, so a template can never inject markup. Rendering escapes every value.
 
 export const EMAIL_TEMPLATE_KEYS = [
+  'DOC_REQUEST',
   'INVOICE',
   'INVOICE_ZERO_SAVINGS',
   'PAYMENT_RECEIPT',
@@ -60,6 +61,12 @@ export const TEMPLATE_PLACEHOLDERS: Record<EmailTemplateKey, Record<string, stri
     'payment.reference': '1234',
     'client.balance': '$740.50',
   },
+  DOC_REQUEST: {
+    ...ORG,
+    ...CLIENT,
+    'document.name': 'engagement agreement and Appointment of Agent (Form 50-162)',
+    'document.link': 'https://example.com/sign/abc',
+  },
   DOC_REMINDER: {
     ...ORG,
     ...CLIENT,
@@ -111,6 +118,16 @@ export const DEFAULT_TEMPLATES: Record<EmailTemplateKey, EmailTemplateContent & 
         'We received your payment of {{payment.amount}} on {{payment.receivedAt}} ({{payment.method}} {{payment.reference}}).',
         'Your remaining balance is {{client.balance}}.',
         'Thank you,\n{{org.name}}',
+      ].join('\n\n'),
+    },
+    DOC_REQUEST: {
+      name: 'Documents to sign',
+      subject: 'Please sign: {{document.name}}',
+      body: [
+        'Hi {{client.displayName}},',
+        'To protest your property taxes, we need your signature on the {{document.name}}. It takes about two minutes.',
+        'Review and sign here: {{document.link}}',
+        'Questions? Just reply to this email.\n{{org.name}}\n{{org.phone}}',
       ].join('\n\n'),
     },
     DOC_REMINDER: {

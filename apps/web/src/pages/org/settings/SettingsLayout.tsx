@@ -8,6 +8,7 @@ const TABS = [
   { to: '', label: 'General' },
   { to: 'team', label: 'Team' },
   { to: 'emails', label: 'Emails' },
+  { to: 'documents', label: 'Documents' },
   { to: 'audit-log', label: 'Audit log' },
 ];
 

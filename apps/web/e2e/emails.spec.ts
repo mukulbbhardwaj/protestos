@@ -1,11 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 // M5: firms edit their email wording with a live preview, and can go back to the built-in one.
+// Signed in as the demo owner (auth.setup.ts); start on the dashboard.
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('owner@demo.test');
-  await page.getByLabel('Password').fill('demo-password');
-  await page.getByRole('button', { name: 'Log in' }).click();
+  await page.goto('/lone-star-demo');
   await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
 });
 

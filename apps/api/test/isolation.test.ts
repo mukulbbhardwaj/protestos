@@ -24,7 +24,9 @@ type Target =
   | 'taxYear'
   | 'importJob'
   | 'invoice'
-  | 'payment';
+  | 'payment'
+  | 'document'
+  | 'envelope';
 
 interface IsolationCase {
   method: Method;
@@ -145,6 +147,37 @@ const CASES: IsolationCase[] = [
     body: { key: 'INVOICE', subject: 'x', body: 'y' },
   },
   { method: 'POST', path: '/invoices/send', body: { invoiceIds: [1], requestKey: 'isolation-1' } },
+  { method: 'GET', path: '/documents' },
+  { method: 'GET', path: '/documents/:id/pdf', targetB: 'document' },
+  { method: 'POST', path: '/documents/:id/signed', targetB: 'document' },
+  {
+    method: 'GET',
+    path: '/contacts/:id/documents/preview?kind=ENGAGEMENT_CONTRACT&propertyIds=0&taxYear=2026&signerName=A',
+    targetB: 'contact',
+  },
+  {
+    method: 'POST',
+    path: '/contacts/:id/documents',
+    body: {
+      kinds: ['ENGAGEMENT_CONTRACT'],
+      propertyIds: [1],
+      taxYear: 2026,
+      signerName: 'Intruder',
+      signerEmail: 'intruder@example.com',
+    },
+    targetB: 'contact',
+  },
+  { method: 'GET', path: '/envelopes/:id', targetB: 'envelope' },
+  { method: 'POST', path: '/envelopes/:id/remind', targetB: 'envelope' },
+  { method: 'POST', path: '/envelopes/:id/void', body: { reason: 'Taken' }, targetB: 'envelope' },
+  { method: 'GET', path: '/document-template' },
+  { method: 'PUT', path: '/document-template', body: { body: 'Taken over agreement text here' } },
+  { method: 'POST', path: '/document-template/reset' },
+  {
+    method: 'POST',
+    path: '/document-template/preview',
+    body: { body: 'Preview agreement text for {{client.displayName}}' },
+  },
   { method: 'GET', path: '/calculator/coverage' },
   { method: 'GET', path: '/calculator/facets?countyId=1&taxYear=2026' },
   { method: 'GET', path: '/calculator/parcels?countyId=1&taxYear=2026' },
@@ -182,6 +215,9 @@ async function snapshotB() {
     allocations: await t.prisma.paymentAllocation.findMany({ where, orderBy: { id: 'asc' } }),
     emailTemplates: await t.prisma.emailTemplate.findMany({ where, orderBy: { id: 'asc' } }),
     deliveries: await t.prisma.emailDelivery.findMany({ where, orderBy: { id: 'asc' } }),
+    documentTemplates: await t.prisma.documentTemplate.findMany({ where, orderBy: { id: 'asc' } }),
+    envelopes: await t.prisma.signatureEnvelope.findMany({ where, orderBy: { id: 'asc' } }),
+    documents: await t.prisma.document.findMany({ where, orderBy: { id: 'asc' } }),
     stageEvents: await t.prisma.protestStageEvent.count({ where }),
     audit: await t.prisma.auditLog.count({ where }),
   });
@@ -289,6 +325,8 @@ beforeAll(async () => {
       taxYear: yearB.id,
       invoice: 0,
       payment: 0,
+      document: 0,
+      envelope: 0,
     },
   };
   // A draft invoice (so every invoice route would act on it if isolation failed) and a payment.
@@ -354,6 +392,39 @@ beforeAll(async () => {
       idempotencyKey: 'bravo:1',
     },
   });
+  await t.prisma.documentTemplate.create({
+    data: {
+      orgId: ownerB.org.id,
+      kind: 'ENGAGEMENT_CONTRACT',
+      name: 'Bravo',
+      body: 'Bravo agreement',
+    },
+  });
+  const envelopeB = await t.prisma.signatureEnvelope.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      provider: 'mock',
+      providerRef: 'bravo-envelope',
+      signToken: 'bravo-sign-token-000000000000',
+      signerName: 'Bravo Signer',
+      signerEmail: 'signer@bravo.test',
+    },
+  });
+  const documentB = await t.prisma.document.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      envelopeId: envelopeB.id,
+      kind: 'ENGAGEMENT_CONTRACT',
+      status: 'SENT',
+      title: 'Bravo agreement',
+      unsignedKey: `org/${ownerB.org.id}/documents/bravo.pdf`,
+    },
+  });
+  await t.storage.put(documentB.unsignedKey, '%PDF-bravo', 'application/pdf');
+  b.ids.document = documentB.id;
+  b.ids.envelope = envelopeB.id;
   b.ids.invoice = invoiceB.id;
   b.ids.payment = paymentB.id;
   lineIdB = lineB.id;
@@ -415,7 +486,35 @@ beforeAll(async () => {
       method: 'CASH',
     },
   });
+  const envelopeA = await t.prisma.signatureEnvelope.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      provider: 'mock',
+      providerRef: 'alpha-envelope',
+      signerName: 'Alpha Signer',
+      signerEmail: 'signer@alpha.test',
+    },
+  });
+  const documentA = await t.prisma.document.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      envelopeId: envelopeA.id,
+      kind: 'ENGAGEMENT_CONTRACT',
+      status: 'SENT',
+      title: 'Alpha agreement',
+      unsignedKey: `org/${ownerA.org.id}/documents/alpha.pdf`,
+    },
+  });
+  await t.storage.put(documentA.unsignedKey, '%PDF-alpha', 'application/pdf');
+  for (const c of CASES) {
+    if (c.path.startsWith('/contacts/:id/documents/preview'))
+      c.path = c.path.replace('propertyIds=0', `propertyIds=${propertyA.id}`);
+  }
   a.ids = {
+    document: documentA.id,
+    envelope: envelopeA.id,
     contact: contactA.id,
     property: propertyA.id,
     importJob: importA.id,

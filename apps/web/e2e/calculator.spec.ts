@@ -2,11 +2,9 @@ import { expect, test } from '@playwright/test';
 
 // Uses the demo firm and the Harris roll from `pnpm db:backfill all` (the synthetic
 // `cad-sample` roll) or a real `pnpm db:backfill cad` load. Spec savings-calculator.md §8.6.
+// Signed in as the demo owner (auth.setup.ts); start on the dashboard.
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('owner@demo.test');
-  await page.getByLabel('Password').fill('demo-password');
-  await page.getByRole('button', { name: 'Log in' }).click();
+  await page.goto('/lone-star-demo');
   await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
 });
 

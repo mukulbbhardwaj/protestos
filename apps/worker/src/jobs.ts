@@ -11,6 +11,8 @@ export interface JobDeps {
   prisma: PrismaClient;
   storage: StorageProvider;
   mail: MailProvider;
+  /** For links in emails. */
+  appUrl: string;
 }
 
 /**
@@ -59,10 +61,15 @@ export const importRunJob: JobDefinition<{
 export const mailDeliverJob: JobDefinition<{ orgId: number; deliveryId: number }> = {
   name: MAIL_JOB,
   queue: { retryLimit: 4, retryDelay: 30, retryBackoff: true },
-  async handle(batch, log, { prisma, storage, mail }) {
+  async handle(batch, log, { prisma, storage, mail, appUrl }) {
     for (const job of batch) {
       const { orgId, deliveryId } = job.data;
-      const result = await deliver(forOrg(prisma, orgId), orgId, { mail, storage }, deliveryId);
+      const result = await deliver(
+        forOrg(prisma, orgId),
+        orgId,
+        { mail, storage, appUrl },
+        deliveryId,
+      );
       log.info({ orgId, deliveryId, result }, 'email delivery');
     }
   },

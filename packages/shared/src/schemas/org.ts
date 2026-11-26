@@ -35,6 +35,10 @@ export const OrgSettings = z.object({
   flatFeeCurrentYearOnly: z.boolean(),
   invoiceGrouping: z.enum(INVOICE_GROUPINGS),
   paymentInstructions: z.string().nullable(),
+  agentName: z.string().nullable(),
+  agentTitle: z.string().nullable(),
+  agentLicense: z.string().nullable(),
+  allowResendSigned: z.boolean(),
   plan: z.string(),
   planStatus: z.string(),
   trialEndsAt: z.string().nullable(),
@@ -68,6 +72,10 @@ export const UpdateOrgSettingsInput = z
     flatFeeCurrentYearOnly: z.boolean(),
     invoiceGrouping: z.enum(INVOICE_GROUPINGS),
     paymentInstructions: optionalText(2000),
+    agentName: optionalText(120),
+    agentTitle: optionalText(80),
+    agentLicense: optionalText(40),
+    allowResendSigned: z.boolean(),
   })
   .partial();
 export type UpdateOrgSettingsInput = z.infer<typeof UpdateOrgSettingsInput>;

@@ -3,7 +3,9 @@ import { registerTenantContext } from '../../plugins/tenant.js';
 import type { Services } from '../../services/index.js';
 import { auditLogRoutes } from './audit-log.js';
 import { calculatorRoutes } from './calculator.js';
+import type { DocumentDeps } from '../../services/documents.js';
 import { contactRoutes } from './contacts.js';
+import { documentRoutes } from './documents.js';
 import { emailRoutes } from './email.js';
 import { financeRoutes } from './finance.js';
 import { importRoutes } from './imports.js';
@@ -17,10 +19,10 @@ import { searchRoutes } from './search.js';
 import { settingsRoutes } from './settings.js';
 
 /** Mounted at /orgs/:orgSlug. Every route here gets an isolation test (test/isolation.test.ts). */
-export const tenantRoutes: FastifyPluginAsync<{ services: Services }> = async (
-  app,
-  { services },
-) => {
+export const tenantRoutes: FastifyPluginAsync<{
+  services: Services;
+  documents: DocumentDeps;
+}> = async (app, { services, documents }) => {
   registerTenantContext(app, services);
   await app.register(overviewRoutes);
   await app.register(settingsRoutes);
@@ -36,4 +38,5 @@ export const tenantRoutes: FastifyPluginAsync<{ services: Services }> = async (
   await app.register(invoiceRoutes, { storage: services.storage });
   await app.register(paymentRoutes, { jobs: services.jobs });
   await app.register(emailRoutes, { jobs: services.jobs });
+  await app.register(documentRoutes, { deps: documents });
 };

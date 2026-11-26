@@ -12,11 +12,50 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M3 CSV import                            | ✅ Done (awaiting review) |
 | M4 Invoicing and payments                | ✅ Done (awaiting review) |
 | M5 Email and delivery tracking           | ✅ Done (awaiting review) |
-| M6 Documents and e-signature             | Not started               |
+| M6 Documents and e-signature             | ✅ Done (awaiting review) |
 | M7 Hearings and dashboards               | Not started               |
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M6: Documents and e-signature (2026-11-26)
+
+ADR 010. E-signature provider: mock for now (Mukul, 2026-11-26).
+
+### Done
+
+- **Send documents** from a client or prospect (Documents tab): engagement agreement and/or
+  Form 50-162, choose properties, tax year and signer; preview each PDF; one email with one
+  link to sign everything. Prospects move to "Docs sent".
+- **Form 50-162** filled from the firm (agent name, title, TDLR #, address, phone) and the
+  owner, one per appraisal district with all of that owner's accounts there.
+- **Signing page** (`/sign/:token`, no login): read each PDF, type name, agree, sign; or
+  decline with a reason. Signed copies get a signature line on every page and a certificate.
+- **After signing:** documents and request marked signed, signed PDFs on file, 50-162
+  property-years → AOA signed (stage history), prospect → Signed. Dashboard checklist ticks
+  "Connect e-signature".
+- **Manage:** reminders, cancel (void) with a reason, copy signing link, "Upload signed" for
+  paper signatures, and a Documents page across the firm (waiting, signed, declined,
+  cancelled).
+- **Settings → Documents:** agreement wording editor with placeholders and a PDF preview
+  (versioned), Form 50-162 agent details, "allow sending signed documents again".
+
+### Verified
+
+- **M6 "done when"** (`apps/api/test/documents.test.ts`, mock provider in place of the DocuSign
+  sandbox): a prospect gets an agreement and a 50-162 per county, opens the link, signs, the
+  signed PDFs are stored and served, property-years are AOA signed and the prospect is SIGNED.
+  Playwright (`e2e/documents.spec.ts`) does the same through the UI with the agreement.
+- Also: 50-162 fields filled from firm and client, missing form explained, resend guard,
+  reminders, void, decline, paper upload, own-properties check, roles, template versions, and
+  isolation for the 12 new routes.
+
+### Open
+
+- **Add the official Form 50-162 PDF** (`packages/pdf/assets/README.md`) and check the field
+  names in `FIELD_MAP` against it. Needs your OK to download it, or drop it in yourself.
 
 ---
 

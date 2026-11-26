@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DevFileMailProvider,
   MemoryMailProvider,
+  MockSignatureProvider,
   parseMailEvents,
   signMailWebhook,
   verifyMailWebhook,
@@ -58,5 +59,21 @@ describe('mock mail webhook', () => {
       }).map((e) => `${e.id} ${e.type} ${e.detail ?? ''}`.trim()),
     ).toEqual(['e1 bounced mailbox full', 'e2 opened']);
     expect(parseMailEvents(null)).toEqual([]);
+  });
+});
+
+describe('MockSignatureProvider', () => {
+  it('records and voids envelopes', async () => {
+    const sig = new MockSignatureProvider();
+    const { providerRef } = await sig.createEnvelope({
+      reference: 'ENV-1',
+      signer: { name: 'Jane', email: 'jane@example.com' },
+      documents: [{ title: 'A', pdf: new Uint8Array() }],
+    });
+    expect(sig.envelopes.get(providerRef)).toEqual({ reference: 'ENV-1', documents: 1 });
+    await sig.voidEnvelope(providerRef, 'Wrong person');
+    await sig.voidEnvelope('unknown', 'x');
+    expect(sig.envelopes.get(providerRef)?.voided).toBe('Wrong person');
+    await expect(sig.getSignedDocuments()).rejects.toThrow(/sign page/);
   });
 });

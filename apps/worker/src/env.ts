@@ -14,6 +14,8 @@ const EnvSchema = z.object({
   STORAGE_DIR: z.string().optional(),
   /** Development emails (shared with the API's dev mailbox). */
   DEV_MAIL_DIR: z.string().optional(),
+  /** The web app's address, for links in emails. */
+  APP_URL: z.string().url().default('http://localhost:5173'),
 });
 
 export type Env = z.infer<typeof EnvSchema> & { STORAGE_DIR: string; DEV_MAIL_DIR: string };

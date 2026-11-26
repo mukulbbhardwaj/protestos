@@ -31,6 +31,7 @@ const deps = {
   prisma: createPrismaClient(env.DATABASE_URL),
   storage: new DevFileStorageProvider(env.STORAGE_DIR),
   mail: new DevFileMailProvider(env.DEV_MAIL_DIR),
+  appUrl: env.APP_URL,
 };
 const boss = new PgBoss(env.DATABASE_URL);
 boss.on('error', (err) => {

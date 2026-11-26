@@ -31,7 +31,10 @@ import { PropertiesListPage } from '@/pages/org/properties/PropertiesListPage';
 import { PropertyDetailPage } from '@/pages/org/properties/PropertyDetailPage';
 import { FinancePage } from '@/pages/org/FinancePage';
 import { ModulePage } from '@/pages/org/ModulePage';
+import { DocumentsPage } from '@/pages/org/documents/DocumentsPage';
 import { AuditLogPage } from '@/pages/org/settings/AuditLogPage';
+import { DocumentSettingsPage } from '@/pages/org/settings/DocumentSettingsPage';
+import { SignPage } from '@/pages/sign/SignPage';
 import { EmailTemplatesPage } from '@/pages/org/settings/EmailTemplatesPage';
 import { GeneralSettingsPage } from '@/pages/org/settings/GeneralSettingsPage';
 import { SettingsLayout } from '@/pages/org/settings/SettingsLayout';
@@ -58,6 +61,7 @@ export const router = createBrowserRouter([
   { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },
   { path: '/invite/:token', element: <AcceptInvitePage /> },
+  { path: '/sign/:token', element: <SignPage /> },
   ...(import.meta.env.DEV ? [{ path: '/dev/mailbox', element: <DevMailboxPage /> }] : []),
   // Logged-out visitors see the landing page; logged-in users go to their firm.
   { path: '/', element: <HomeRedirect landing={<LandingPage />} /> },
@@ -79,6 +83,7 @@ export const router = createBrowserRouter([
           { path: 'invoices', element: <InvoicesPage /> },
           { path: 'invoices/:invoiceId', element: <InvoiceDetailPage /> },
           { path: 'payments', element: <PaymentsPage /> },
+          { path: 'documents', element: <DocumentsPage /> },
           {
             path: 'imports',
             element: (
@@ -112,6 +117,7 @@ export const router = createBrowserRouter([
               { index: true, element: <GeneralSettingsPage /> },
               { path: 'team', element: <TeamSettingsPage /> },
               { path: 'emails', element: <EmailTemplatesPage /> },
+              { path: 'documents', element: <DocumentSettingsPage /> },
               { path: 'audit-log', element: <AuditLogPage /> },
             ],
           },

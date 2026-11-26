@@ -6,11 +6,9 @@ import { expect, test, type Page } from '@playwright/test';
 const SLUG = 'lone-star-demo';
 const year = new Date().getFullYear();
 
+// Signed in as the demo owner (auth.setup.ts); start on the dashboard.
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('owner@demo.test');
-  await page.getByLabel('Password').fill('demo-password');
-  await page.getByRole('button', { name: 'Log in' }).click();
+  await page.goto('/lone-star-demo');
   await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
 });
 

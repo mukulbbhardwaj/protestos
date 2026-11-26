@@ -7,4 +7,5 @@ export * from './estimate/index.js';
 export * from './normalize/index.js';
 export * from './billing/index.js';
 export * from './email/index.js';
+export * from './documents/index.js';
 export * from './imports/fields.js';

@@ -29,6 +29,7 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
         }),
         db.contact.count({ where: { kind: 'CLIENT', archivedAt: null } }),
       ]);
+      const sentDocuments = await db.signatureEnvelope.count();
       const taxYear = currentTaxYear(org);
       const activeYear = { taxYear, property: { archivedAt: null } };
       const [propertiesThisYear, newProspects30d, myProperties, stages, bouncedEmails] =
@@ -65,7 +66,8 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
           importedData: clients > 0,
           brandingSet: Boolean(org.logoKey || org.primaryColor),
           teamInvited: members > 1 || pendingInvitations > 0,
-          eSignatureConnected: false, // e-signature arrives in M6
+          // Mock provider until one is chosen: done once the firm has sent documents.
+          eSignatureConnected: sentDocuments > 0,
         },
       };
     },

@@ -1,6 +1,16 @@
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
-import { renderInvoicePdf, renderStatementPdf, type InvoicePdfData } from './index.js';
+import {
+  FIELD_MAP,
+  fill50162,
+  FORM_PROPERTY_ROWS,
+  listFormFields,
+  renderContractPdf,
+  renderInvoicePdf,
+  renderStatementPdf,
+  stampSignature,
+  type InvoicePdfData,
+} from './index.js';
 
 const org = {
   name: 'Lone Star Demo Tax Consultants',
@@ -107,5 +117,89 @@ describe('statement PDF', () => {
       balanceDue: '0',
     });
     expect(await pages(empty)).toBe(1);
+  });
+});
+
+describe('documents', () => {
+  it('renders a contract with its properties table and stamps a signature', async () => {
+    const bytes = await renderContractPdf({
+      org,
+      title: 'Engagement agreement',
+      blocks: [
+        { type: 'text', text: 'PROPERTY TAX CONSULTING AGREEMENT' },
+        { type: 'text', text: 'Owner engages Consultant.' },
+        { type: 'properties' },
+      ],
+      properties: [
+        { county: 'Harris', accountNumber: '0660640130020', address: '1700 St Charles St' },
+      ],
+      signer: { name: 'Jane Owner', email: 'jane@example.com' },
+    });
+    expect(await pages(bytes)).toBe(1);
+    const signed = await stampSignature(bytes, {
+      signerName: 'Jane Owner',
+      signerEmail: 'jane@example.com',
+      signedAt: new Date('2026-11-26T15:00:00Z'),
+      ip: '203.0.113.5',
+      reference: 'ENV-1',
+      documentTitle: 'Engagement agreement',
+    });
+    expect(await pages(signed)).toBe(2);
+  });
+
+  it('fills Form 50-162 fields by the field map and reports any it cannot find', async () => {
+    // A stand-in fillable form with the mapped field names (the official PDF isn't committed).
+    const doc = await PDFDocument.create();
+    const page = doc.addPage();
+    const form = doc.getForm();
+    const names = [
+      FIELD_MAP.text.ownerName[0]!,
+      FIELD_MAP.text.ownerAddress[0]!,
+      FIELD_MAP.text.appraisalDistrict[0]!,
+      FIELD_MAP.text.agentName[0]!,
+      FIELD_MAP.text.agentAddress[0]!,
+      FIELD_MAP.text.agentLicense[0]!,
+      ...Array.from({ length: FORM_PROPERTY_ROWS }, (_, i) => [
+        FIELD_MAP.property.account[0]!.replace('{n}', String(i + 1)),
+        FIELD_MAP.property.address[1]!.replace('{n}', String(i + 1)),
+      ]).flat(),
+    ];
+    names.forEach((n, i) =>
+      form.createTextField(n).addToPage(page, { x: 10, y: 10 + i * 20, width: 200, height: 14 }),
+    );
+    form
+      .createCheckBox(FIELD_MAP.allMatters[0]!)
+      .addToPage(page, { x: 300, y: 10, width: 10, height: 10 });
+    const blank = await doc.save();
+
+    const { pdf, missing } = await fill50162(blank, {
+      owner: {
+        name: 'Jane Owner',
+        address: '1 Elm St, Houston, TX 77005',
+        phone: '713-555-0100',
+        email: null,
+      },
+      appraisalDistrict: 'Harris Central Appraisal District',
+      properties: Array.from({ length: 8 }, (_, i) => ({
+        accountNumber: `A${i + 1}`,
+        address: `${i + 1} Main St`,
+      })),
+      agent: {
+        name: 'Lone Star Tax',
+        title: null,
+        address: '100 Main St',
+        phone: null,
+        license: 'PTC-1',
+      },
+      taxYear: 2026,
+    });
+    const filled = (await PDFDocument.load(pdf)).getForm();
+    expect(filled.getTextField('Owner Name').getText()).toBe('Jane Owner');
+    expect(filled.getTextField('Account Number 6').getText()).toBe('A6');
+    expect(filled.getTextField('Physical address legal description 1').getText()).toBe('1 Main St');
+    expect(filled.getCheckBox('All Property Tax Matters').isChecked()).toBe(true);
+    // Phone has no field in the stand-in form: reported, not silently dropped.
+    expect(missing).toEqual(['owner phone']);
+    expect(await listFormFields(blank)).toContain('TextField: Owner Name');
   });
 });

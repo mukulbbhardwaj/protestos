@@ -2,11 +2,9 @@ import { expect, test } from '@playwright/test';
 
 // Uses the demo firm from `pnpm db:backfill all`. The run step needs the worker, so this
 // covers upload → mapping → dry run; test/imports.test.ts runs the import itself.
+// Signed in as the demo owner (auth.setup.ts); start on the dashboard.
 test.beforeEach(async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('owner@demo.test');
-  await page.getByLabel('Password').fill('demo-password');
-  await page.getByRole('button', { name: 'Log in' }).click();
+  await page.goto('/lone-star-demo');
   await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
 });
 

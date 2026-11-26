@@ -41,7 +41,12 @@ export async function makeTestApp(overrides: Partial<AppDeps> = {}): Promise<Tes
         d.jobId,
       ),
     [JOBS.mailDeliver]: (d: { orgId: number; deliveryId: number }) =>
-      deliver(forOrg(testPrisma(), d.orgId), d.orgId, { mail, storage }, d.deliveryId),
+      deliver(
+        forOrg(testPrisma(), d.orgId),
+        d.orgId,
+        { mail, storage, appUrl: APP_URL },
+        d.deliveryId,
+      ),
   });
   const routes: { method: string; url: string }[] = [];
   const app = await buildApp(

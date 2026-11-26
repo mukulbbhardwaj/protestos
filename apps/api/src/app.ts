@@ -1,6 +1,12 @@
 import { pingDatabase } from '@app/db';
 import type { PrismaClient } from '@app/db/raw';
-import { DevFileMailProvider, type MailProvider, type StorageProvider } from '@app/providers';
+import {
+  DevFileMailProvider,
+  MockSignatureProvider,
+  type MailProvider,
+  type SignatureProvider,
+  type StorageProvider,
+} from '@app/providers';
 import type { JobQueue } from './jobs.js';
 import { REQUEST_ID_HEADER, resolveRequestId } from '@app/shared/node';
 import rateLimit from '@fastify/rate-limit';
@@ -19,7 +25,9 @@ import { countyRoutes } from './routes/counties.js';
 import { devRoutes } from './routes/dev.js';
 import { healthRoutes } from './routes/health.js';
 import { onboardingRoutes } from './routes/onboarding.js';
+import { signingRoutes } from './routes/signing.js';
 import { tenantRoutes } from './routes/tenant/index.js';
+import { loadForm50162, type DocumentDeps } from './services/documents.js';
 import { webhookRoutes } from './routes/webhooks.js';
 import { createServices } from './services/index.js';
 
@@ -36,6 +44,10 @@ export interface AppDeps {
   cookieSecure?: boolean;
   sessionTtlDays?: number;
   authRateLimitPerMin?: number;
+  /** E-signature provider (mock until one is chosen). */
+  signature?: SignatureProvider;
+  /** The official blank Form 50-162; null until installed. */
+  form50162?: () => Promise<Uint8Array | null>;
   /** Shared secret for the mail provider's webhook signature. */
   mailWebhookSecret?: string;
   /** Overrides the DB check (tests simulate an outage with it). */
@@ -87,7 +99,15 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
   await app.register(onboardingRoutes, { services });
   await app.register(countyRoutes, { services });
   await app.register(adminRoutes, { services });
-  await app.register(tenantRoutes, { services, prefix: '/orgs/:orgSlug' });
+  const documents: DocumentDeps = {
+    storage: deps.storage,
+    signature: deps.signature ?? new MockSignatureProvider(),
+    jobs: deps.jobs,
+    appUrl: deps.appUrl,
+    form50162: deps.form50162 ?? loadForm50162,
+  };
+  await app.register(tenantRoutes, { services, documents, prefix: '/orgs/:orgSlug' });
+  await app.register(signingRoutes, { services, deps: documents });
   await app.register(webhookRoutes, {
     services,
     mailSecret: deps.mailWebhookSecret ?? DEV_MAIL_WEBHOOK_SECRET,

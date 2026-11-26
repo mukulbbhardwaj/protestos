@@ -16,3 +16,5 @@ export {
 export { DevFileStorageProvider } from './storage/dev-file.js';
 export { MemoryStorageProvider } from './storage/memory.js';
 export { StorageNotFoundError, type StorageProvider } from './storage/types.js';
+export { MockSignatureProvider } from './signature/mock.js';
+export type { SignatureProvider } from './signature/types.js';

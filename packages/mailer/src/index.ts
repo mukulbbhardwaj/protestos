@@ -18,6 +18,8 @@ export const MAIL_JOB = 'mail.deliver';
 export interface MailerDeps {
   mail: MailProvider;
   storage: StorageProvider;
+  /** For links in emails (the signing page). */
+  appUrl: string;
 }
 
 /** The firm's edited copy of a template, or the built-in one. */
@@ -52,7 +54,13 @@ const METHOD: Record<string, string> = {
 /** Placeholder values for a delivery (see TEMPLATE_PLACEHOLDERS). */
 export async function varsFor(
   db: OrgDb,
-  delivery: { contactId: number; invoiceId: number | null; paymentId: number | null },
+  delivery: {
+    contactId: number;
+    invoiceId: number | null;
+    paymentId: number | null;
+    envelopeId: number | null;
+  },
+  appUrl: string,
 ) {
   const org = await db.org.findFirstOrThrow({
     select: { name: true, phone: true, website: true, paymentInstructions: true },
@@ -102,6 +110,20 @@ export async function varsFor(
       'client.balance': usd(sumMoney(open.map((o) => o.balance.toString()))),
     });
   }
+  if (delivery.envelopeId) {
+    const e = await db.signatureEnvelope.findUniqueOrThrow({
+      where: { id: delivery.envelopeId },
+      include: { documents: { select: { title: true }, orderBy: { id: 'asc' } } },
+    });
+    const titles = e.documents.map((d) => d.title);
+    Object.assign(vars, {
+      'document.name':
+        titles.length > 1
+          ? `${titles.slice(0, -1).join(', ')} and ${titles.at(-1)}`
+          : (titles[0] ?? ''),
+      'document.link': e.signToken ? `${appUrl}/sign/${e.signToken}` : appUrl,
+    });
+  }
   return vars;
 }
 
@@ -115,7 +137,7 @@ export async function deliver(
   if (!d || (d.status !== 'QUEUED' && d.status !== 'FAILED')) return 'SKIPPED';
   try {
     const content = await templateFor(db, d.templateKey);
-    const message = renderTemplate(content, await varsFor(db, d));
+    const message = renderTemplate(content, await varsFor(db, d, deps.appUrl));
     const attachments: MailAttachment[] = [];
     for (const key of d.attachmentKeys) {
       attachments.push({

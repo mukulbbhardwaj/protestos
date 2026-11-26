@@ -270,13 +270,14 @@ describe('email templates', () => {
   it('lists defaults, saves an edit used by the next send, previews, and resets', async () => {
     const list = (await req('GET', '/email-templates')).json();
     expect(list.map((x: { key: string }) => x.key)).toEqual([
+      'DOC_REQUEST',
       'INVOICE',
       'INVOICE_ZERO_SAVINGS',
       'PAYMENT_RECEIPT',
       'DOC_REMINDER',
       'PROSPECT_OUTREACH',
     ]);
-    expect(list[0]).toMatchObject({ isCustom: false });
+    expect(list[1]).toMatchObject({ key: 'INVOICE', isCustom: false });
 
     const bad = await req('PUT', '/email-templates', {
       key: 'INVOICE',
