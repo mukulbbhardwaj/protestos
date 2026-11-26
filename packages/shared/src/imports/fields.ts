@@ -10,11 +10,8 @@ export const IMPORT_KINDS = [
   'HISTORICAL_INVOICES',
 ] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
-/** Kinds that can be imported now; historical invoices need invoices (M4). */
-export const AVAILABLE_IMPORT_KINDS: readonly ImportKind[] = [
-  'CONTACTS_PROPERTIES',
-  'TAX_YEAR_VALUES',
-];
+/** Kinds that can be imported now. */
+export const AVAILABLE_IMPORT_KINDS: readonly ImportKind[] = IMPORT_KINDS;
 
 export type ImportFieldType =
   | 'text'
@@ -47,8 +44,9 @@ export interface ImportField {
 const CONTACT = 'Client';
 const PROPERTY = 'Property';
 const YEAR = 'Tax year';
+const INVOICE = 'Invoice';
 
-export const IMPORT_FIELDS: Record<Exclude<ImportKind, 'HISTORICAL_INVOICES'>, ImportField[]> = {
+export const IMPORT_FIELDS: Record<ImportKind, ImportField[]> = {
   CONTACTS_PROPERTIES: [
     {
       key: 'clientNumber',
@@ -475,10 +473,104 @@ export const IMPORT_FIELDS: Record<Exclude<ImportKind, 'HISTORICAL_INVOICES'>, I
     },
     { key: 'notes', label: 'Notes', type: 'text', group: YEAR, synonyms: ['notes', 'comments'] },
   ],
+  // Invoices from the firm's previous system (M4): balances and history, no fee snapshot.
+  HISTORICAL_INVOICES: [
+    {
+      key: 'invoiceNumber',
+      label: 'Invoice number',
+      type: 'text',
+      group: INVOICE,
+      required: true,
+      synonyms: [
+        'invoice number',
+        'invoice',
+        'invoice #',
+        'inv',
+        'inv #',
+        'invoice id',
+        'bill number',
+      ],
+    },
+    {
+      key: 'clientNumber',
+      label: 'Client number',
+      type: 'text',
+      group: CONTACT,
+      synonyms: [
+        'client number',
+        'client #',
+        'client id',
+        'customer number',
+        'customer id',
+        'acct id',
+      ],
+      hint: 'Matches your clients by client number, then email, then exact name.',
+    },
+    {
+      key: 'email',
+      label: 'Client email',
+      type: 'email',
+      group: CONTACT,
+      synonyms: ['email', 'client email', 'e mail', 'customer email'],
+    },
+    {
+      key: 'clientName',
+      label: 'Client name',
+      type: 'text',
+      group: CONTACT,
+      synonyms: ['client name', 'client', 'customer', 'customer name', 'name', 'owner'],
+    },
+    {
+      key: 'taxYear',
+      label: 'Tax year',
+      type: 'year',
+      group: INVOICE,
+      required: true,
+      synonyms: ['tax year', 'year', 'protest year'],
+    },
+    {
+      key: 'issueDate',
+      label: 'Invoice date',
+      type: 'date',
+      group: INVOICE,
+      required: true,
+      synonyms: ['invoice date', 'date', 'issue date', 'issued', 'bill date', 'date issued'],
+    },
+    {
+      key: 'dueDate',
+      label: 'Due date',
+      type: 'date',
+      group: INVOICE,
+      synonyms: ['due date', 'due', 'date due'],
+    },
+    {
+      key: 'total',
+      label: 'Invoice total',
+      type: 'money',
+      group: INVOICE,
+      required: true,
+      synonyms: ['total', 'amount', 'invoice total', 'invoice amount', 'amount billed', 'fee'],
+    },
+    {
+      key: 'amountPaid',
+      label: 'Amount paid',
+      type: 'money',
+      group: INVOICE,
+      synonyms: ['paid', 'amount paid', 'payments', 'total paid'],
+    },
+    {
+      key: 'paidAt',
+      label: 'Paid date',
+      type: 'date',
+      group: INVOICE,
+      synonyms: ['paid date', 'payment date', 'date paid'],
+    },
+    { key: 'notes', label: 'Notes', type: 'text', group: INVOICE, synonyms: ['notes', 'memo'] },
+  ],
 };
 
 export function importFields(kind: ImportKind): ImportField[] {
-  return kind === 'HISTORICAL_INVOICES' ? [] : IMPORT_FIELDS[kind];
+  return IMPORT_FIELDS[kind];
 }
 
 /**
@@ -512,7 +604,7 @@ export function autoMapColumns(
 }
 
 /** A small sample file per import type: the header row and two example rows. */
-export const SAMPLE_CSVS: Record<Exclude<ImportKind, 'HISTORICAL_INVOICES'>, string> = {
+export const SAMPLE_CSVS: Record<ImportKind, string> = {
   CONTACTS_PROPERTIES: [
     'Client Number,Client Name,Email,Phone,Mailing Address,"City, State ZIP",Contingency Fee,Flat Fee,County,Account Number,Property Address,Property Type',
     '1042,Jane Smith,jane@example.com,(281) 555-1234,123 Main St,"Houston, TX 77002",30%,,Harris,0660640130020,1700 St Charles St,Residential',
@@ -523,5 +615,10 @@ export const SAMPLE_CSVS: Record<Exclude<ImportKind, 'HISTORICAL_INVOICES'>, str
     'County,Account Number,Tax Year,Notice Market,Notice Appraised,Final Market,Final Appraised,Tax Rate,Homestead,Notice Received,Protest Filed,Stage',
     'Harris,0660640130020,2026,"$524,819","$376,607","$489,000","$376,607",2.15%,Yes,04/17/2026,05/01/2026,Settled',
     'Fort Bend,R267426,2026,"$273,584","$273,584","$255,000","$255,000",2.36,Yes,04/10/2026,05/02/2026,Protest filed',
+  ].join('\n'),
+  HISTORICAL_INVOICES: [
+    'Invoice #,Client Number,Client Name,Tax Year,Invoice Date,Due Date,Total,Amount Paid,Paid Date',
+    '2025-0117,1042,Jane Smith,2025,09/15/2025,10/15/2025,"$1,240.50","$1,240.50",10/02/2025',
+    '2025-0118,,Acme Holdings LLC,2025,09/15/2025,10/15/2025,$875.00,$400.00,11/01/2025',
   ].join('\n'),
 };

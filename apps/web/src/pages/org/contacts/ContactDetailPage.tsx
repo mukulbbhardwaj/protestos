@@ -48,10 +48,11 @@ import { formatDate, formatDateTime, formatMoney } from '@/lib/format';
 import { PROPERTY_TYPE_SHORT, PROSPECT_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { AddPropertyDialog } from '../properties/AddPropertyDialog';
+import { ClientBillingTab } from './ClientBillingTab';
 
 type FormIn = z.input<typeof UpdateContactInput>;
 type FormOut = z.output<typeof UpdateContactInput>;
-type Tab = 'overview' | 'properties' | 'activity';
+type Tab = 'overview' | 'properties' | 'billing' | 'activity';
 
 function toForm(c: ContactDetail): FormIn {
   const addr = c.mailingAddress ?? { line1: '', city: '', state: 'TX', zip: '' };
@@ -214,6 +215,7 @@ export function ContactDetailPage() {
           [
             ['overview', 'Overview'],
             ['properties', `Properties (${props.data?.total ?? c.propertyCount})`],
+            ...(isClient ? ([['billing', 'Billing']] as const) : []),
             ...(isAdmin ? ([['activity', 'Activity']] as const) : []),
           ] as const
         ).map(([key, label]) => (
@@ -231,6 +233,7 @@ export function ContactDetailPage() {
       </nav>
 
       {tab === 'overview' && <OverviewTab contact={c} canEdit={canEdit && !c.archivedAt} />}
+      {tab === 'billing' && <ClientBillingTab contactId={c.id} displayName={c.displayName} />}
 
       {tab === 'properties' && (
         <Card className="overflow-hidden">

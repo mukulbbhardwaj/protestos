@@ -128,6 +128,46 @@ enum ImportPhase {
   APPLY
 }
 
+enum InvoiceGrouping {
+  /// One invoice per client per tax year, a line per property (BUILD_PLAN 5.6 default).
+  CLIENT_YEAR
+  /// One invoice per property per tax year.
+  PROPERTY_YEAR
+}
+
+/// PARTIALLY_PAID and PAID are derived from allocations; past due is never stored.
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  VOID
+  WRITTEN_OFF
+}
+
+enum InvoiceTemplate {
+  STANDARD
+  ARBITRATION
+  HOMESTEAD
+  ZERO_SAVINGS
+}
+
+enum InvoiceLineKind {
+  CONTINGENCY
+  FLAT
+  BPP
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  ZELLE
+  CHECK
+  ACH
+  CASH
+  CARD
+  OTHER
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -143,48 +183,55 @@ enum PlanStatus {
 }
 
 model Org {
-  id                     Int          @id @default(autoincrement())
+  id                     Int             @id @default(autoincrement())
   name                   String
-  slug                   String       @unique
-  state                  String       @default("TX") @db.Char(2)
-  timezone               String       @default("America/Chicago")
+  slug                   String          @unique
+  state                  String          @default("TX") @db.Char(2)
+  timezone               String          @default("America/Chicago")
   logoKey                String?
   primaryColor           String?
-  addressLines           String[]     @default([])
+  addressLines           String[]        @default([])
   phone                  String?
   website                String?
-  defaultContingencyPct  Decimal      @default(0) @db.Decimal(9, 4)
-  defaultFlatFee         Decimal      @default(0) @db.Decimal(15, 2)
-  defaultBppFee          Decimal      @default(0) @db.Decimal(15, 2)
-  invoicePrefix          String       @default("INV-")
-  nextInvoiceNumber      Int          @default(1)
-  invoiceDueDays         Int          @default(30)
+  defaultContingencyPct  Decimal         @default(0) @db.Decimal(9, 4)
+  defaultFlatFee         Decimal         @default(0) @db.Decimal(15, 2)
+  defaultBppFee          Decimal         @default(0) @db.Decimal(15, 2)
+  invoicePrefix          String          @default("INV-")
+  nextInvoiceNumber      Int             @default(1)
+  invoiceDueDays         Int             @default(30)
   /// The current billing (protest) year. Null means the calendar year.
   taxYearDefault         Int?
-  nextClientNumber       Int          @default(1001)
+  nextClientNumber       Int             @default(1001)
   /// BUILD_PLAN 7 [ASK]: which value savings are measured on.
-  savingsBasis           SavingsBasis @default(APPRAISED)
+  savingsBasis           SavingsBasis    @default(APPRAISED)
   /// The flat fee is only charged on the current billing year (reference-app rule).
-  flatFeeCurrentYearOnly Boolean      @default(true)
-  stripeCustomerId       String?      @unique
-  plan                   Plan         @default(STARTER)
-  planStatus             PlanStatus   @default(TRIALING)
-  trialEndsAt            DateTime?    @db.Timestamptz(6)
+  flatFeeCurrentYearOnly Boolean         @default(true)
+  invoiceGrouping        InvoiceGrouping @default(CLIENT_YEAR)
+  /// Printed on invoices: Zelle, check address, ACH details.
+  paymentInstructions    String?
+  stripeCustomerId       String?         @unique
+  plan                   Plan            @default(STARTER)
+  planStatus             PlanStatus      @default(TRIALING)
+  trialEndsAt            DateTime?       @db.Timestamptz(6)
   propertyLimit          Int?
   seatLimit              Int?
-  createdAt              DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime     @updatedAt @db.Timestamptz(6)
+  createdAt              DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime        @updatedAt @db.Timestamptz(6)
 
-  memberships Membership[]
-  auditLogs   AuditLog[]
-  invitations Invitation[]
-  settings    OrgSetting[]
-  contacts    Contact[]
-  properties  Property[]
-  taxYears    TaxYearRecord[]
-  stageEvents ProtestStageEvent[]
-  imports     ImportJob[]
-  importRows  ImportRow[]
+  memberships  Membership[]
+  auditLogs    AuditLog[]
+  invitations  Invitation[]
+  settings     OrgSetting[]
+  contacts     Contact[]
+  properties   Property[]
+  taxYears     TaxYearRecord[]
+  stageEvents  ProtestStageEvent[]
+  imports      ImportJob[]
+  importRows   ImportRow[]
+  invoices     Invoice[]
+  invoiceLines InvoiceLine[]
+  payments     Payment[]
+  allocations  PaymentAllocation[]
 }
 
 model User {
@@ -206,6 +253,8 @@ model User {
   consultantFor   Property[]
   stageEvents     ProtestStageEvent[]
   imports         ImportJob[]
+  invoicesCreated Invoice[]
+  paymentsCreated Payment[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -435,6 +484,8 @@ model Contact {
 
   org        Org        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   properties Property[]
+  invoices   Invoice[]
+  payments   Payment[]
 
   /// Target of same-org composite foreign keys.
   @@unique([orgId, id])
@@ -472,12 +523,13 @@ model Property {
   createdAt           DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime     @updatedAt @db.Timestamptz(6)
 
-  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org          Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
   // Composite FK: a property can only belong to a contact in the same org.
-  contact    Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
-  county     County          @relation(fields: [countyId], references: [id])
-  consultant User?           @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
-  taxYears   TaxYearRecord[]
+  contact      Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  county       County          @relation(fields: [countyId], references: [id])
+  consultant   User?           @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
+  taxYears     TaxYearRecord[]
+  invoiceLines InvoiceLine[]
 
   @@unique([orgId, id])
   @@unique([orgId, countyId, accountNumber])
@@ -521,9 +573,10 @@ model TaxYearRecord {
   createdAt              DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime     @updatedAt @db.Timestamptz(6)
 
-  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  property    Property            @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
-  stageEvents ProtestStageEvent[]
+  org          Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  property     Property            @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
+  stageEvents  ProtestStageEvent[]
+  invoiceLines InvoiceLine[]
 
   @@unique([orgId, id])
   @@unique([propertyId, taxYear])
@@ -605,4 +658,115 @@ model ImportRow {
 
   @@index([orgId, importJobId, phase, rowNumber])
   @@index([orgId, importJobId, phase, action])
+}
+
+/// BUILD_PLAN 5.6. Totals are kept in step with lines and allocations by the billing service.
+model Invoice {
+  id             Int             @id @default(autoincrement())
+  orgId          Int
+  contactId      Int
+  /// Prefix + sequence, assigned at issue; null while a draft.
+  number         String?
+  taxYear        Int
+  status         InvoiceStatus   @default(DRAFT)
+  issueDate      DateTime?       @db.Date
+  dueDate        DateTime?       @db.Date
+  template       InvoiceTemplate @default(STANDARD)
+  subtotal       Decimal         @default(0) @db.Decimal(15, 2)
+  total          Decimal         @default(0) @db.Decimal(15, 2)
+  amountPaid     Decimal         @default(0) @db.Decimal(15, 2)
+  balance        Decimal         @default(0) @db.Decimal(15, 2)
+  currency       String          @default("USD") @db.Char(3)
+  pdfKey         String?
+  sentAt         DateTime?       @db.Timestamptz(6)
+  voidedAt       DateTime?       @db.Timestamptz(6)
+  voidReason     String?
+  writtenOffAt   DateTime?       @db.Timestamptz(6)
+  writeOffReason String?
+  notes          String?
+  /// Imported from the firm's old system (CSV): no fee snapshot behind it.
+  historical     Boolean         @default(false)
+  createdById    Int?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+
+  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact     Contact             @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lines       InvoiceLine[]
+  allocations PaymentAllocation[]
+
+  @@unique([orgId, id])
+  @@unique([orgId, number])
+  @@index([orgId, status, dueDate])
+  @@index([orgId, contactId])
+  @@index([orgId, taxYear])
+  @@index([orgId, issueDate])
+}
+
+model InvoiceLine {
+  id              Int             @id @default(autoincrement())
+  orgId           Int
+  invoiceId       Int
+  propertyId      Int?
+  taxYearRecordId Int?
+  kind            InvoiceLineKind
+  description     String
+  /// Fee-engine inputs and outputs at issue time (BUILD_PLAN 7 "Snapshotting"). Frozen once issued.
+  snapshot        Json?
+  amount          Decimal         @db.Decimal(15, 2)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+
+  org           Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoice       Invoice        @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Cascade)
+  property      Property?      @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Restrict)
+  taxYearRecord TaxYearRecord? @relation(fields: [orgId, taxYearRecordId], references: [orgId, id], onDelete: Restrict)
+
+  @@index([orgId, invoiceId])
+  @@index([orgId, taxYearRecordId])
+}
+
+/// A payment from a client. What isn't allocated to invoices is the client's credit.
+model Payment {
+  id          Int           @id @default(autoincrement())
+  orgId       Int
+  contactId   Int
+  receivedAt  DateTime      @db.Date
+  amount      Decimal       @db.Decimal(15, 2)
+  method      PaymentMethod
+  reference   String?
+  notes       String?
+  createdById Int?
+  /// Deleted payments keep their row for the audit trail; their allocations are removed.
+  deletedAt   DateTime?     @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+
+  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact     Contact             @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  allocations PaymentAllocation[]
+
+  @@unique([orgId, id])
+  @@index([orgId, contactId])
+  @@index([orgId, receivedAt])
+}
+
+model PaymentAllocation {
+  id        Int      @id @default(autoincrement())
+  orgId     Int
+  paymentId Int
+  invoiceId Int
+  amount    Decimal  @db.Decimal(15, 2)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  org     Org     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [orgId, paymentId], references: [orgId, id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Restrict)
+
+  @@unique([paymentId, invoiceId])
+  @@index([orgId, invoiceId])
 }

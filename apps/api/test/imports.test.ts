@@ -255,12 +255,48 @@ describe('CSV imports', () => {
     expect(twice.statusCode).toBe(400);
   });
 
+  it('imports historical invoices with their payments, idempotently', async () => {
+    await importFile('CONTACTS_PROPERTIES', SAMPLE_CSVS.CONTACTS_PROPERTIES);
+    const first = await importFile('HISTORICAL_INVOICES', SAMPLE_CSVS.HISTORICAL_INVOICES);
+    expect(first.done.summary).toEqual({ CREATE: 2, UPDATE: 0, UNCHANGED: 0, ERROR: 0 });
+    const list = (await req('GET', '/invoices?sort=number')).json();
+    expect(
+      list.items.map(
+        (i: { number: string; status: string; balance: string; historical: boolean }) =>
+          `${i.number} ${i.status} ${i.balance} ${i.historical}`,
+      ),
+    ).toEqual(['2025-0118 PARTIALLY_PAID 475.00 true', '2025-0117 PAID 0.00 true']);
+    expect((await req('GET', '/payments')).json().sum).toBe('1640.50');
+
+    const again = await importFile('HISTORICAL_INVOICES', SAMPLE_CSVS.HISTORICAL_INVOICES);
+    expect(again.done.summary).toEqual({ CREATE: 0, UPDATE: 0, UNCHANGED: 2, ERROR: 0 });
+
+    // The client paid the rest: the imported payment is replaced, not added to.
+    const paidUp = SAMPLE_CSVS.HISTORICAL_INVOICES.replace('$875.00,$400.00', '$875.00,$875.00');
+    const third = await importFile('HISTORICAL_INVOICES', paidUp);
+    expect(third.done.summary).toMatchObject({ UPDATE: 1, UNCHANGED: 1 });
+    const rows = (await req('GET', `/imports/${third.id}/rows?action=UPDATE`)).json();
+    expect(rows.items[0].changes).toEqual(['amount paid']);
+    expect((await req('GET', '/invoices?status=OPEN')).json().total).toBe(0);
+    expect((await req('GET', '/payments')).json().sum).toBe('2115.50');
+
+    const unknown = await importFile(
+      'HISTORICAL_INVOICES',
+      'Invoice #,Client Name,Tax Year,Invoice Date,Total,Amount Paid\nX-1,Nobody,2025,01/02/2025,100,200\nX-2,Jane Smith,2025,01/02/2025,100,200',
+    );
+    expect(unknown.done.summary.ERROR).toBe(2);
+    const errs = (await req('GET', `/imports/${unknown.id}/rows?action=ERROR`)).json();
+    expect(errs.items.map((r: { messages: string[] }) => r.messages[0])).toEqual([
+      'No matching client. Import clients first, or add the client number.',
+      'Amount paid is more than the invoice total.',
+    ]);
+  });
+
   it('checks files and the order of steps', async () => {
     expect((await upload('CONTACTS_PROPERTIES', '')).statusCode).toBe(400);
     expect((await upload('CONTACTS_PROPERTIES', 'a,a\n1,2')).json().error.message).toMatch(
       /Two columns/,
     );
-    expect((await upload('HISTORICAL_INVOICES', 'a\n1')).statusCode).toBe(400);
     const id = (await upload('TAX_YEAR_VALUES', SAMPLE_CSVS.TAX_YEAR_VALUES)).json().id;
     expect((await req('POST', `/imports/${id}/run`)).statusCode).toBe(409);
     const sample = await req('GET', '/imports/template?kind=TAX_YEAR_VALUES');

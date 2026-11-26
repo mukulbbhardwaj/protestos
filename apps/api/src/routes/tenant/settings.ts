@@ -25,6 +25,8 @@ function toSettings(org: OrgRow): OrgSettings {
     taxYearDefault: org.taxYearDefault,
     savingsBasis: org.savingsBasis,
     flatFeeCurrentYearOnly: org.flatFeeCurrentYearOnly,
+    invoiceGrouping: org.invoiceGrouping,
+    paymentInstructions: org.paymentInstructions,
     plan: org.plan,
     planStatus: org.planStatus,
     trialEndsAt: org.trialEndsAt?.toISOString() ?? null,

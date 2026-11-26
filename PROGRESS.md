@@ -10,13 +10,54 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M2 Contacts, properties, tax years       | ✅ Done                   |
 | M2.5 Tax savings calculator              | ✅ Done (awaiting review) |
 | M3 CSV import                            | ✅ Done (awaiting review) |
-| M4 Invoicing and payments                | Not started               |
+| M4 Invoicing and payments                | ✅ Done (awaiting review) |
 | M5 Email and delivery tracking           | Not started               |
 | M6 Documents and e-signature             | Not started               |
 | M7 Hearings and dashboards               | Not started               |
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M4: Invoicing and payments (2026-11-26)
+
+ADR 008.
+
+### Done
+
+- **Generate:** pick a tax year (and county or consultant) → preview of the drafts with totals
+  and the property-years skipped, with the reason (missing tax rate, no fee due) → drafts.
+  Grouping is a firm setting: per client per year (default) or per property. A client's
+  Billing tab can draft just their invoice ("Invoice 2026").
+- **Review:** adjustment lines (negative for discounts), remove lines, layout (standard,
+  arbitration, homestead, zero savings; chosen automatically), notes, live PDF preview.
+- **Issue:** fees recalculated from current values and frozen with a snapshot, next number,
+  issue and due dates (firm's payment terms), PDF stored, property-years → INVOICED.
+- **Payments:** record against a client (Zelle, check, ACH, cash, card, other, reference),
+  allocated oldest first or by hand; overpayment kept as credit and applied later. Partial
+  and full payment derive invoice status; fully paid → property-years PAID. Delete a payment
+  to reopen its invoices.
+- **Void / write off** with a reason (audited); voiding returns payments to credit and makes
+  the property-years billable again.
+- **PDFs** (`packages/pdf`): invoice with one block per property and the fee working (notice →
+  final, reduction × tax rate = savings × %), totals and payment instructions; client
+  statement with open invoices, recent payments, credit and balance due.
+- **Client Billing tab:** balance due, past due, credit, every invoice, statement PDF.
+- **Historical invoices import** (third import type): balances and payments from the old
+  system, idempotent on invoice number.
+- Settings: invoice grouping, payment instructions.
+
+### Verified
+
+- **M4 "done when":** `apps/api/test/billing.test.ts` and `apps/web/e2e/invoicing.spec.ts`:
+  generate → issue → part pay → pay in full, balances correct at each step, and changing the
+  values, fee % and firm default after issue leaves the invoice, its lines and its PDF
+  byte-for-byte unchanged.
+- Billing rules in `packages/shared/src/billing` at 100% coverage (allocation, derived status,
+  past due, aging, layout choice).
+- 346 unit/integration tests (api 213 incl. isolation for all 17 billing routes; shared 102;
+  db 11; web 8; providers 6; pdf 4; worker 2) and 9 Playwright tests; lint, typecheck, build.
 
 ---
 

@@ -14,6 +14,8 @@ export default defineConfig({
         'src/estimate/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         // BUILD_PLAN 10: normalizers are pure functions with high coverage.
         'src/normalize/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        // Allocation, derived status and aging decide what clients owe.
+        'src/billing/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
   },

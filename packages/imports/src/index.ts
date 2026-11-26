@@ -9,6 +9,7 @@ import {
   type Mode,
 } from './common.js';
 import { importContacts } from './contacts.js';
+import { importInvoices } from './invoices.js';
 import { importTaxYears } from './tax-years.js';
 
 export type { ImportContext, ImportOutcome, RowResult } from './common.js';
@@ -47,8 +48,8 @@ async function run(ctx: ImportContext, input: ImportInput, mode: Mode): Promise<
       return importContacts(ctx, input, mode);
     case 'TAX_YEAR_VALUES':
       return importTaxYears(ctx, input, mode);
-    default:
-      throw new ImportFileError('Historical invoices can be imported once invoicing is available.');
+    case 'HISTORICAL_INVOICES':
+      return importInvoices(ctx, input, mode);
   }
 }
 

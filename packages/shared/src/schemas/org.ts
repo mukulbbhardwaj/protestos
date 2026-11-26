@@ -1,3 +1,4 @@
+import { INVOICE_GROUPINGS } from '../billing/index.js';
 import { z } from 'zod';
 import { ORG_ROLES } from '../roles.js';
 import { DecimalString, Email, percentString } from './common.js';
@@ -32,6 +33,8 @@ export const OrgSettings = z.object({
   taxYearDefault: z.number().nullable(),
   savingsBasis: z.enum(['APPRAISED', 'MARKET']),
   flatFeeCurrentYearOnly: z.boolean(),
+  invoiceGrouping: z.enum(INVOICE_GROUPINGS),
+  paymentInstructions: z.string().nullable(),
   plan: z.string(),
   planStatus: z.string(),
   trialEndsAt: z.string().nullable(),
@@ -63,6 +66,8 @@ export const UpdateOrgSettingsInput = z
     taxYearDefault: z.coerce.number().int().min(2000).max(2100).nullable(),
     savingsBasis: z.enum(['APPRAISED', 'MARKET']),
     flatFeeCurrentYearOnly: z.boolean(),
+    invoiceGrouping: z.enum(INVOICE_GROUPINGS),
+    paymentInstructions: optionalText(2000),
   })
   .partial();
 export type UpdateOrgSettingsInput = z.infer<typeof UpdateOrgSettingsInput>;

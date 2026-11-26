@@ -46,3 +46,10 @@ export function formatMoney(value: string | number): string {
 export function daysUntil(iso: string): number {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
 }
+
+/** A calendar date (YYYY-MM-DD, no time zone) as MM/DD/YYYY, without shifting the day. */
+export function formatDay(day: string | null | undefined): string {
+  if (!day) return '—';
+  const [y, m, d] = day.slice(0, 10).split('-');
+  return `${m}/${d}/${y}`;
+}

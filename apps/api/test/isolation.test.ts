@@ -16,7 +16,15 @@ import {
 } from './helpers.js';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
-type Target = 'member' | 'invitation' | 'contact' | 'property' | 'taxYear' | 'importJob';
+type Target =
+  | 'member'
+  | 'invitation'
+  | 'contact'
+  | 'property'
+  | 'taxYear'
+  | 'importJob'
+  | 'invoice'
+  | 'payment';
 
 interface IsolationCase {
   method: Method;
@@ -92,6 +100,38 @@ const CASES: IsolationCase[] = [
   { method: 'POST', path: '/imports/:id/run', targetB: 'importJob' },
   { method: 'GET', path: '/imports/:id/rows', targetB: 'importJob' },
   { method: 'GET', path: '/imports/:id/errors.csv', targetB: 'importJob' },
+  { method: 'GET', path: '/invoices' },
+  { method: 'POST', path: '/invoices/generate', body: { taxYear: 2026 } },
+  { method: 'GET', path: '/invoices/:id', targetB: 'invoice' },
+  { method: 'GET', path: '/invoices/:id/pdf', targetB: 'invoice' },
+  { method: 'PATCH', path: '/invoices/:id', body: { notes: 'Taken' }, targetB: 'invoice' },
+  {
+    method: 'POST',
+    path: '/invoices/:id/lines',
+    body: { description: 'Taken', amount: '1' },
+    targetB: 'invoice',
+  },
+  { method: 'DELETE', path: '/invoices/:id/lines/:lineId', targetB: 'invoice' },
+  { method: 'DELETE', path: '/invoices/:id', targetB: 'invoice' },
+  { method: 'POST', path: '/invoices/:id/issue', body: {}, targetB: 'invoice' },
+  { method: 'POST', path: '/invoices/:id/void', body: { reason: 'Taken' }, targetB: 'invoice' },
+  {
+    method: 'POST',
+    path: '/invoices/:id/write-off',
+    body: { reason: 'Taken' },
+    targetB: 'invoice',
+  },
+  { method: 'GET', path: '/payments' },
+  {
+    method: 'POST',
+    path: '/payments',
+    body: { contactId: 1, receivedAt: '2026-09-01', amount: '1', method: 'CASH' },
+  },
+  { method: 'GET', path: '/payments/:id', targetB: 'payment' },
+  { method: 'DELETE', path: '/payments/:id', targetB: 'payment' },
+  { method: 'GET', path: '/contacts/:id/billing', targetB: 'contact' },
+  { method: 'POST', path: '/contacts/:id/apply-credit', targetB: 'contact' },
+  { method: 'GET', path: '/contacts/:id/statement.pdf', targetB: 'contact' },
   { method: 'GET', path: '/calculator/coverage' },
   { method: 'GET', path: '/calculator/facets?countyId=1&taxYear=2026' },
   { method: 'GET', path: '/calculator/parcels?countyId=1&taxYear=2026' },
@@ -107,6 +147,8 @@ const CASES: IsolationCase[] = [
 let t: TestContext;
 let a: { cookie: string; slug: string; ids: Partial<Record<Target, number>> };
 let b: { slug: string; ids: Record<Target, number> };
+/** Org B's invoice line, for the one route with a second id. */
+let lineIdB = 0;
 
 /** Everything in org B, as raw rows, to prove nothing changed. */
 async function snapshotB() {
@@ -121,6 +163,10 @@ async function snapshotB() {
     taxYears: await t.prisma.taxYearRecord.findMany({ where, orderBy: { id: 'asc' } }),
     imports: await t.prisma.importJob.findMany({ where, orderBy: { id: 'asc' } }),
     importRows: await t.prisma.importRow.count({ where }),
+    invoices: await t.prisma.invoice.findMany({ where, orderBy: { id: 'asc' } }),
+    invoiceLines: await t.prisma.invoiceLine.findMany({ where, orderBy: { id: 'asc' } }),
+    payments: await t.prisma.payment.findMany({ where, orderBy: { id: 'asc' } }),
+    allocations: await t.prisma.paymentAllocation.findMany({ where, orderBy: { id: 'asc' } }),
     stageEvents: await t.prisma.protestStageEvent.count({ where }),
     audit: await t.prisma.auditLog.count({ where }),
   });
@@ -226,8 +272,61 @@ beforeAll(async () => {
       contact: contactB.id,
       property: propertyB.id,
       taxYear: yearB.id,
+      invoice: 0,
+      payment: 0,
     },
   };
+  // A draft invoice (so every invoice route would act on it if isolation failed) and a payment.
+  const invoiceB = await t.prisma.invoice.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      taxYear: 2026,
+      total: '100',
+      subtotal: '100',
+      balance: '100',
+      notes: 'Bravo secret notes',
+    },
+  });
+  const lineB = await t.prisma.invoiceLine.create({
+    data: {
+      orgId: ownerB.org.id,
+      invoiceId: invoiceB.id,
+      propertyId: propertyB.id,
+      taxYearRecordId: yearB.id,
+      kind: 'FLAT',
+      description: 'Bravo fee',
+      amount: '100',
+    },
+  });
+  const issuedB = await t.prisma.invoice.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      taxYear: 2025,
+      status: 'ISSUED',
+      number: 'B-0001',
+      total: '50',
+      subtotal: '50',
+      balance: '50',
+    },
+  });
+  const paymentB = await t.prisma.payment.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      receivedAt: new Date('2026-09-01'),
+      amount: '80',
+      method: 'CHECK',
+      reference: 'bravo-check',
+    },
+  });
+  await t.prisma.paymentAllocation.create({
+    data: { orgId: ownerB.org.id, paymentId: paymentB.id, invoiceId: issuedB.id, amount: '30' },
+  });
+  b.ids.invoice = invoiceB.id;
+  b.ids.payment = paymentB.id;
+  lineIdB = lineB.id;
   // Org A gets its own contact and property, for the "own responses" checks on :id routes.
   const contactA = await t.prisma.contact.create({
     data: {
@@ -258,13 +357,54 @@ beforeAll(async () => {
     },
   });
   await t.storage.put(importA.fileKey, 'Client Name\nAlpha Person\n', 'text/csv');
-  a.ids = { contact: contactA.id, property: propertyA.id, importJob: importA.id };
+  const invoiceA = await t.prisma.invoice.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      taxYear: 2026,
+      total: '10',
+      balance: '10',
+    },
+  });
+  await t.prisma.invoiceLine.create({
+    data: {
+      orgId: ownerA.org.id,
+      invoiceId: invoiceA.id,
+      propertyId: propertyA.id,
+      kind: 'FLAT',
+      description: 'Alpha fee',
+      amount: '10',
+    },
+  });
+  const paymentA = await t.prisma.payment.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      receivedAt: new Date('2026-09-01'),
+      amount: '5',
+      method: 'CASH',
+    },
+  });
+  a.ids = {
+    contact: contactA.id,
+    property: propertyA.id,
+    importJob: importA.id,
+    invoice: invoiceA.id,
+    payment: paymentA.id,
+  };
 
   // Make the generic bodies above point at org B's rows.
   for (const c of CASES) {
     if (c.path === '/properties' && c.method === 'POST')
       c.body = { contactId: contactB.id, accountNumber: 'X1', countyId: county.id };
     if (c.path.startsWith('/properties/bulk/')) c.body = { ...c.body, ids: [propertyB.id] };
+    if (c.path === '/payments' && c.method === 'POST')
+      c.body = {
+        ...c.body,
+        contactId: contactB.id,
+        allocations: [{ invoiceId: issuedB.id, amount: '1' }],
+      };
+    if (c.path === '/invoices/generate') c.body = { taxYear: 2026, contactIds: [contactB.id] };
   }
 
   // Give org A its own rows of every kind too, so list routes have something to return.
@@ -281,7 +421,7 @@ beforeAll(async () => {
 afterAll(() => t.app.close());
 
 function url(slug: string, c: IsolationCase, id?: number) {
-  return `/orgs/${slug}${c.path.replace(':id', String(id ?? 0))}`;
+  return `/orgs/${slug}${c.path.replace(':id', String(id ?? 0)).replace(':lineId', String(lineIdB))}`;
 }
 const routeKey = (c: IsolationCase) => `${c.method} ${c.path.split('?')[0]}`;
 
@@ -349,6 +489,14 @@ describe('tenant isolation', () => {
       payload: { contactId: b.ids.contact, accountNumber: 'SNEAKY', countyId: 1 },
     });
     expect(create.statusCode).toBe(404);
+    // Nor record a payment for another firm's client.
+    const pay = await t.app.inject({
+      method: 'POST',
+      url: `/orgs/${a.slug}/payments`,
+      headers: { cookie: a.cookie },
+      payload: { contactId: b.ids.contact, receivedAt: '2026-09-01', amount: '1', method: 'CASH' },
+    });
+    expect(pay.statusCode).toBe(404);
     for (const c of CASES.filter((x) => x.path.startsWith('/properties/bulk/'))) {
       const res = await t.app.inject({
         method: c.method,

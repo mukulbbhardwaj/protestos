@@ -56,8 +56,7 @@ export function ImportDetailPage() {
   if (job.error) return <Alert variant="destructive">{job.error.message}</Alert>;
   if (job.isPending) return <Skeleton className="h-96 w-full" />;
   const j = job.data;
-  const kindTitle =
-    j.kind === 'HISTORICAL_INVOICES' ? 'Historical invoices' : KIND_INFO[j.kind].title;
+  const kindTitle = KIND_INFO[j.kind].title;
 
   return (
     <>

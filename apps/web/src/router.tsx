@@ -19,6 +19,9 @@ import { LandingPage } from '@/pages/landing/LandingPage';
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
 import { CalculatorPage } from '@/pages/org/calculator/CalculatorPage';
 import { ImportDetailPage } from '@/pages/org/imports/ImportDetailPage';
+import { InvoiceDetailPage } from '@/pages/org/invoices/InvoiceDetailPage';
+import { InvoicesPage } from '@/pages/org/invoices/InvoicesPage';
+import { PaymentsPage } from '@/pages/org/payments/PaymentsPage';
 import { ImportsPage } from '@/pages/org/imports/ImportsPage';
 import { PlatformDataPage } from '@/pages/org/platform/PlatformDataPage';
 import { ContactDetailPage } from '@/pages/org/contacts/ContactDetailPage';
@@ -72,6 +75,9 @@ export const router = createBrowserRouter([
           { path: 'properties', element: <PropertiesListPage /> },
           { path: 'properties/:propertyId', element: <PropertyDetailPage /> },
           { path: 'calculator', element: <CalculatorPage /> },
+          { path: 'invoices', element: <InvoicesPage /> },
+          { path: 'invoices/:invoiceId', element: <InvoiceDetailPage /> },
+          { path: 'payments', element: <PaymentsPage /> },
           {
             path: 'imports',
             element: (

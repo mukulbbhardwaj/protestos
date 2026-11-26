@@ -112,8 +112,6 @@ export const importRoutes: FastifyPluginAsyncZod<{
     { schema: { params: OrgParams, querystring: z.object({ kind: z.enum(IMPORT_KINDS) }) } },
     async (request, reply) => {
       const kind = request.query.kind;
-      if (kind === 'HISTORICAL_INVOICES')
-        throw notFound('Historical invoice imports arrive with invoicing.');
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header(

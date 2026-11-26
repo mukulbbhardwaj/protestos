@@ -16,10 +16,7 @@ import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-export const KIND_INFO: Record<
-  Exclude<ImportKind, 'HISTORICAL_INVOICES'>,
-  { title: string; body: string }
-> = {
+export const KIND_INFO: Record<ImportKind, { title: string; body: string }> = {
   CONTACTS_PROPERTIES: {
     title: 'Clients & properties',
     body: 'One row per property, with its owner. Clients match on client number, then email; properties on county and account number.',
@@ -27,6 +24,10 @@ export const KIND_INFO: Record<
   TAX_YEAR_VALUES: {
     title: 'Tax-year values',
     body: 'Notice and final values, tax rate, dates and stage for properties you already have. Matches on county, account number and tax year.',
+  },
+  HISTORICAL_INVOICES: {
+    title: 'Past invoices',
+    body: 'Invoices and payments from your previous system, so balances carry over. Matches on invoice number; clients on client number, email or name.',
   },
 };
 
@@ -46,8 +47,7 @@ export function ImportsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const input = useRef<HTMLInputElement>(null);
-  const [kind, setKind] =
-    useState<Exclude<ImportKind, 'HISTORICAL_INVOICES'>>('CONTACTS_PROPERTIES');
+  const [kind, setKind] = useState<ImportKind>('CONTACTS_PROPERTIES');
   const list = useOrgQuery<ImportListItem[]>('/imports');
 
   const upload = useMutation({
@@ -70,8 +70,8 @@ export function ImportsPage() {
         description="Bring in clients, properties and tax-year values from your spreadsheets. Every import starts with a dry run, and re-importing a file never creates duplicates."
       />
       <Card className="mb-6 p-5">
-        <div className="grid gap-3 md:grid-cols-2">
-          {(Object.keys(KIND_INFO) as (keyof typeof KIND_INFO)[]).map((k) => (
+        <div className="grid gap-3 md:grid-cols-3">
+          {(Object.keys(KIND_INFO) as ImportKind[]).map((k) => (
             <button
               key={k}
               type="button"
@@ -153,11 +153,7 @@ export function ImportsPage() {
                       <FileSpreadsheet className="size-4" /> {j.fileName}
                     </Link>
                   </td>
-                  <td className="px-5 py-2.5">
-                    {j.kind === 'HISTORICAL_INVOICES'
-                      ? 'Historical invoices'
-                      : KIND_INFO[j.kind].title}
-                  </td>
+                  <td className="px-5 py-2.5">{KIND_INFO[j.kind].title}</td>
                   <td className="px-5 py-2.5 text-right tabular-nums">
                     {j.rowCount.toLocaleString()}
                   </td>

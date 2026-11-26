@@ -138,7 +138,6 @@ export const MODULES: ModuleDef[] = [
     icon: FileText,
     minRole: 'READ_ONLY',
     group: 'Money',
-    comingIn: 'M4',
     summary: 'Contingency invoices calculated from notice and final values.',
     features: [
       'Generate draft invoices per client for a tax year',
@@ -154,7 +153,6 @@ export const MODULES: ModuleDef[] = [
     icon: Banknote,
     minRole: 'READ_ONLY',
     group: 'Money',
-    comingIn: 'M4',
     summary: 'Record payments and apply them to open invoices.',
     features: [
       'Zelle, check, ACH, cash or card, with reference numbers',
