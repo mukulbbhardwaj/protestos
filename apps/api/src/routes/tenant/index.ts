@@ -4,6 +4,7 @@ import type { Services } from '../../services/index.js';
 import { auditLogRoutes } from './audit-log.js';
 import { calculatorRoutes } from './calculator.js';
 import { contactRoutes } from './contacts.js';
+import { emailRoutes } from './email.js';
 import { financeRoutes } from './finance.js';
 import { importRoutes } from './imports.js';
 import { invitationRoutes } from './invitations.js';
@@ -33,5 +34,6 @@ export const tenantRoutes: FastifyPluginAsync<{ services: Services }> = async (
   await app.register(calculatorRoutes);
   await app.register(importRoutes, { storage: services.storage, jobs: services.jobs });
   await app.register(invoiceRoutes, { storage: services.storage });
-  await app.register(paymentRoutes);
+  await app.register(paymentRoutes, { jobs: services.jobs });
+  await app.register(emailRoutes, { jobs: services.jobs });
 };

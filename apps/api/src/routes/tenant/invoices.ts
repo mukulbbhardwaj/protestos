@@ -34,6 +34,7 @@ import {
   voidInvoice,
   writeOffInvoice,
 } from '../../services/billing.js';
+import { toDeliveryDto } from '../../services/email.js';
 import { day, iso, money } from './mappers.js';
 import { actorOf, Ok, OrgIdParams, OrgParams } from './params.js';
 
@@ -42,6 +43,11 @@ type Db = ReturnType<typeof tenantOf>['db'];
 const SUMMARY_INCLUDE = {
   contact: { select: { id: true, displayName: true, clientNumber: true } },
   lines: { select: { propertyId: true } },
+  deliveries: {
+    orderBy: { id: 'desc' },
+    take: 1,
+    select: { status: true, toEmail: true },
+  },
 } as const;
 
 type SummaryRow = Prisma.InvoiceGetPayload<{ include: typeof SUMMARY_INCLUDE }>;
@@ -63,6 +69,7 @@ function toSummary(i: SummaryRow, today: string): InvoiceSummary {
     propertyCount: new Set(i.lines.map((l) => l.propertyId).filter(Boolean)).size,
     historical: i.historical,
     sentAt: iso(i.sentAt),
+    delivery: i.deliveries[0] ?? null,
     createdAt: i.createdAt.toISOString(),
   };
 }
@@ -105,6 +112,7 @@ async function detail(db: Db, id: number): Promise<InvoiceDetail> {
         include: { payment: true },
         orderBy: { payment: { receivedAt: 'asc' } },
       },
+      deliveries: { orderBy: { id: 'desc' } },
     },
   });
   if (!i) throw notFound('That invoice was not found.');
@@ -151,6 +159,7 @@ async function detail(db: Db, id: number): Promise<InvoiceDetail> {
       amount: money(a.amount)!,
     })),
     billTo: billToOf(i.contact),
+    deliveries: i.deliveries.map(toDeliveryDto),
   };
 }
 
@@ -174,6 +183,13 @@ export function invoiceWhere(
     ...status,
     ...(q.taxYear ? { taxYear: q.taxYear } : {}),
     ...(q.contactId ? { contactId: q.contactId } : {}),
+    ...(q.delivery === 'NOT_SENT'
+      ? { status: { notIn: ['DRAFT', 'VOID'] }, deliveries: { none: {} } }
+      : q.delivery === 'SENT'
+        ? { deliveries: { some: {} } }
+        : q.delivery === 'BOUNCED'
+          ? { deliveries: { some: { status: 'BOUNCED' } } }
+          : {}),
     ...(q.q
       ? {
           OR: [

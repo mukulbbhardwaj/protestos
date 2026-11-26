@@ -1,7 +1,8 @@
 import { forOrg } from '@app/db';
 import type { PrismaClient } from '@app/db/raw';
 import { applyImport } from '@app/imports';
-import type { StorageProvider } from '@app/providers';
+import { deliver, MAIL_JOB } from '@app/mailer';
+import type { MailProvider, StorageProvider } from '@app/providers';
 import type { Job } from 'pg-boss';
 import type { Logger } from 'pino';
 
@@ -9,6 +10,7 @@ import type { Logger } from 'pino';
 export interface JobDeps {
   prisma: PrismaClient;
   storage: StorageProvider;
+  mail: MailProvider;
 }
 
 /**
@@ -18,6 +20,8 @@ export interface JobDeps {
  */
 export interface JobDefinition<T extends object = object> {
   name: string;
+  /** Queue options when the queue is first created (retries). */
+  queue?: { retryLimit: number; retryDelay: number; retryBackoff: boolean };
   /** Optional cron schedule (UTC). */
   cron?: string;
   handle: (jobs: Job<T>[], log: Logger, deps: JobDeps) => Promise<void>;
@@ -51,4 +55,21 @@ export const importRunJob: JobDefinition<{
   },
 };
 
-export const jobs: JobDefinition[] = [heartbeatJob as JobDefinition, importRunJob as JobDefinition];
+/** Sends one queued email; pg-boss retries on failure (the delivery is marked FAILED meanwhile). */
+export const mailDeliverJob: JobDefinition<{ orgId: number; deliveryId: number }> = {
+  name: MAIL_JOB,
+  queue: { retryLimit: 4, retryDelay: 30, retryBackoff: true },
+  async handle(batch, log, { prisma, storage, mail }) {
+    for (const job of batch) {
+      const { orgId, deliveryId } = job.data;
+      const result = await deliver(forOrg(prisma, orgId), orgId, { mail, storage }, deliveryId);
+      log.info({ orgId, deliveryId, result }, 'email delivery');
+    }
+  },
+};
+
+export const jobs: JobDefinition[] = [
+  heartbeatJob as JobDefinition,
+  importRunJob as JobDefinition,
+  mailDeliverJob as JobDefinition,
+];

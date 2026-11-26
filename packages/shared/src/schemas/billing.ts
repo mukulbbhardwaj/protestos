@@ -6,7 +6,9 @@ import {
   INVOICE_TEMPLATES,
   PAYMENT_METHODS,
 } from '../billing/index.js';
+import { DELIVERY_STATUSES } from '../email/index.js';
 import { Id } from './common.js';
+import { DeliveryDto } from './email.js';
 import { PageQuery } from './crm.js';
 
 // Invoicing and payments API (BUILD_PLAN 8.6, 8.7). Money travels as "1234.50" strings.
@@ -44,6 +46,8 @@ export const InvoiceSummary = z.object({
   propertyCount: z.number(),
   historical: z.boolean(),
   sentAt: z.string().nullable(),
+  /** Latest email of this invoice, if any (M5). */
+  delivery: z.object({ status: z.enum(DELIVERY_STATUSES), toEmail: z.string() }).nullable(),
   createdAt: z.string(),
 });
 export type InvoiceSummary = z.infer<typeof InvoiceSummary>;
@@ -90,6 +94,7 @@ export const InvoiceDetail = InvoiceSummary.extend({
     email: z.string().nullable(),
     addressLines: z.array(z.string()),
   }),
+  deliveries: z.array(DeliveryDto),
 });
 export type InvoiceDetail = z.infer<typeof InvoiceDetail>;
 
@@ -98,6 +103,7 @@ export const InvoiceListQuery = PageQuery.extend({
   taxYear: z.coerce.number().int().optional(),
   contactId: Id.optional(),
   q: z.string().trim().max(100).optional(),
+  delivery: z.enum(['NOT_SENT', 'SENT', 'BOUNCED']).optional(),
   sort: z.enum(['newest', 'number', 'due', 'balance']).default('newest'),
 });
 export type InvoiceListQuery = z.infer<typeof InvoiceListQuery>;
@@ -201,6 +207,8 @@ export const CreatePaymentInput = z.object({
     .optional(),
   /** Omitted: allocated oldest first. An empty list keeps it all as credit. */
   allocations: z.array(AllocationInput).optional(),
+  /** Email the client a receipt (PAYMENT_RECEIPT template). */
+  sendReceipt: z.boolean().optional(),
 });
 export type CreatePaymentInput = z.input<typeof CreatePaymentInput>;
 export type CreatePaymentData = z.infer<typeof CreatePaymentInput>;
@@ -220,6 +228,7 @@ export const PaymentDto = z.object({
   ),
   createdBy: z.string().nullable(),
   createdAt: z.string(),
+  receipt: z.object({ status: z.enum(DELIVERY_STATUSES), toEmail: z.string() }).nullable(),
 });
 export type PaymentDto = z.infer<typeof PaymentDto>;
 
@@ -236,6 +245,8 @@ export const ClientBilling = z.object({
   credit: z.string(),
   openBalance: z.string(),
   pastDueBalance: z.string(),
+  /** Has a billing email or email, so receipts and invoices can be emailed. */
+  hasEmail: z.boolean(),
   openInvoices: z.array(InvoiceSummary),
 });
 export type ClientBilling = z.infer<typeof ClientBilling>;

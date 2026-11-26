@@ -6,3 +6,4 @@ export * from './calculator.js';
 export * from './admin.js';
 export * from './imports.js';
 export * from './billing.js';
+export * from './email.js';

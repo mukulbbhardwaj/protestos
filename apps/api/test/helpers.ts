@@ -1,3 +1,4 @@
+import { deliver } from '@app/mailer';
 import { createPrismaClient, type PrismaClient } from '@app/db/raw';
 import { forOrg } from '@app/db';
 import { applyImport } from '@app/imports';
@@ -39,6 +40,8 @@ export async function makeTestApp(overrides: Partial<AppDeps> = {}): Promise<Tes
         storage,
         d.jobId,
       ),
+    [JOBS.mailDeliver]: (d: { orgId: number; deliveryId: number }) =>
+      deliver(forOrg(testPrisma(), d.orgId), d.orgId, { mail, storage }, d.deliveryId),
   });
   const routes: { method: string; url: string }[] = [];
   const app = await buildApp(

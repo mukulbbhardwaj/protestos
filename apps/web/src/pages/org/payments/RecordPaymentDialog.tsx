@@ -52,6 +52,7 @@ export function RecordPaymentDialog({
   const [method, setMethod] = useState<PaymentMethod>('CHECK');
   const [reference, setReference] = useState('');
   const [manual, setManual] = useState<Record<number, string> | null>(null);
+  const [receipt, setReceipt] = useState(true);
   const client = picked ?? contact ?? null;
 
   const matches = useQuery({
@@ -92,6 +93,7 @@ export function RecordPaymentDialog({
           amount: amount.replace(/[$,]/g, ''),
           method,
           reference,
+          sendReceipt: receipt && Boolean(billing.data?.hasEmail),
           ...(manual
             ? {
                 allocations: Object.entries(manual)
@@ -257,6 +259,17 @@ export function RecordPaymentDialog({
                 </table>
               </div>
             )}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={receipt && Boolean(billing.data?.hasEmail)}
+                disabled={!billing.data?.hasEmail}
+                onChange={(e) => setReceipt(e.target.checked)}
+              />
+              {billing.data?.hasEmail
+                ? 'Email the client a receipt'
+                : 'No email on file for a receipt'}
+            </label>
             {toCents(amount) > 0 && (
               <p
                 className={

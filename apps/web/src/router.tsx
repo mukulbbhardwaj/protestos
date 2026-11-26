@@ -32,6 +32,7 @@ import { PropertyDetailPage } from '@/pages/org/properties/PropertyDetailPage';
 import { FinancePage } from '@/pages/org/FinancePage';
 import { ModulePage } from '@/pages/org/ModulePage';
 import { AuditLogPage } from '@/pages/org/settings/AuditLogPage';
+import { EmailTemplatesPage } from '@/pages/org/settings/EmailTemplatesPage';
 import { GeneralSettingsPage } from '@/pages/org/settings/GeneralSettingsPage';
 import { SettingsLayout } from '@/pages/org/settings/SettingsLayout';
 import { TeamSettingsPage } from '@/pages/org/settings/TeamSettingsPage';
@@ -110,6 +111,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <GeneralSettingsPage /> },
               { path: 'team', element: <TeamSettingsPage /> },
+              { path: 'emails', element: <EmailTemplatesPage /> },
               { path: 'audit-log', element: <AuditLogPage /> },
             ],
           },

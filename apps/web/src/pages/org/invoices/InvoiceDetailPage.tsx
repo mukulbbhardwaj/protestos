@@ -6,7 +6,18 @@ import {
   type InvoiceTemplate,
 } from '@app/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Ban, FileDown, Loader2, Plus, Send, Trash2, Wallet, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  FileDown,
+  Loader2,
+  Mail,
+  Plus,
+  Send,
+  Trash2,
+  Wallet,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -28,9 +39,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useOrg } from '@/hooks/useOrg';
 import { api } from '@/lib/api';
 import { METHOD_LABELS, TEMPLATE_LABELS, todayIso } from '@/lib/billing';
-import { formatDay, formatMoney } from '@/lib/format';
+import { formatDateTime, formatDay, formatMoney } from '@/lib/format';
 import { RecordPaymentDialog } from '../payments/RecordPaymentDialog';
+import { DeliveryBadge } from './DeliveryBadge';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
+import { SendInvoicesDialog } from './SendInvoicesDialog';
 
 type Snapshot = {
   values?: Record<string, string | null>;
@@ -47,7 +60,9 @@ export function InvoiceDetailPage() {
   const key = ['org', org.orgSlug, 'invoice', invoiceId];
   const q = useQuery({ queryKey: key, queryFn: () => api<InvoiceDetail>(base) });
   const canEdit = roleAtLeast(org.role, 'STAFF');
-  const [dialog, setDialog] = useState<null | 'issue' | 'void' | 'writeOff' | 'pay' | 'line'>(null);
+  const [dialog, setDialog] = useState<
+    null | 'issue' | 'void' | 'writeOff' | 'pay' | 'line' | 'send'
+  >(null);
 
   const done = (message: string) => (inv?: InvoiceDetail) => {
     if (inv) qc.setQueryData(key, inv);
@@ -146,6 +161,11 @@ export function InvoiceDetailPage() {
                 <Send /> Issue
               </Button>
             </>
+          )}
+          {canEdit && inv.hasPdf && inv.status !== 'VOID' && (
+            <Button variant="outline" onClick={() => setDialog('send')}>
+              <Mail /> {inv.deliveries.length ? 'Email again' : 'Email'}
+            </Button>
           )}
           {canEdit && open && (
             <>
@@ -290,6 +310,35 @@ export function InvoiceDetailPage() {
               ))}
             </CardContent>
           </Card>
+          {inv.deliveries.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Emails</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 text-sm">
+                {inv.deliveries.map((d) => (
+                  <div key={d.id} className="grid gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate">{d.toEmail}</span>
+                      <DeliveryBadge status={d.status} />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {d.sentAt
+                        ? `Sent ${formatDateTime(d.sentAt)}`
+                        : `Queued ${formatDateTime(d.queuedAt)}`}
+                      {d.events.map((e) => (
+                        <div key={e.id}>
+                          {e.type[0]!.toUpperCase() + e.type.slice(1)} {formatDateTime(e.at)}
+                          {e.detail && `: ${e.detail}`}
+                        </div>
+                      ))}
+                      {d.error && <div className="text-destructive">{d.error}</div>}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
           <NotesCard
             notes={inv.notes}
             canEdit={canEdit && inv.status !== 'VOID'}
@@ -329,6 +378,13 @@ export function InvoiceDetailPage() {
         pending={writeOff.isPending}
         onConfirm={(r) => writeOff.mutate(r)}
       />
+      {dialog === 'send' && (
+        <SendInvoicesDialog
+          invoiceIds={[inv.id]}
+          open
+          onOpenChange={(o) => setDialog(o ? 'send' : null)}
+        />
+      )}
       <RecordPaymentDialog
         open={dialog === 'pay'}
         onOpenChange={(o) => setDialog(o ? 'pay' : null)}

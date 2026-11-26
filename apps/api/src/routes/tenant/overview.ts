@@ -31,18 +31,22 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
       ]);
       const taxYear = currentTaxYear(org);
       const activeYear = { taxYear, property: { archivedAt: null } };
-      const [propertiesThisYear, newProspects30d, myProperties, stages] = await Promise.all([
-        db.taxYearRecord.count({ where: activeYear }),
-        db.contact.count({
-          where: { kind: 'PROSPECT', createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
-        }),
-        db.property.count({ where: { consultantUserId: userId, archivedAt: null } }),
-        db.taxYearRecord.groupBy({
-          by: ['protestStage'],
-          where: activeYear,
-          _count: { _all: true },
-        }),
-      ]);
+      const [propertiesThisYear, newProspects30d, myProperties, stages, bouncedEmails] =
+        await Promise.all([
+          db.taxYearRecord.count({ where: activeYear }),
+          db.contact.count({
+            where: { kind: 'PROSPECT', createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+          }),
+          db.property.count({ where: { consultantUserId: userId, archivedAt: null } }),
+          db.taxYearRecord.groupBy({
+            by: ['protestStage'],
+            where: activeYear,
+            _count: { _all: true },
+          }),
+          db.emailDelivery.count({
+            where: { status: 'BOUNCED', queuedAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+          }),
+        ]);
       return {
         org: { id: org.id, name: org.name, slug: org.slug },
         role,
@@ -54,6 +58,7 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
           propertiesThisYear,
           newProspects30d,
           myProperties,
+          bouncedEmails,
           stages: stages.map((s) => ({ stage: s.protestStage, count: s._count._all })),
         },
         checklist: {

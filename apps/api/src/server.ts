@@ -26,6 +26,7 @@ const app = await buildApp(
     storage,
     jobs,
     appUrl: env.APP_URL,
+    mailWebhookSecret: env.MAIL_WEBHOOK_SECRET,
     version: env.APP_VERSION,
     cookieSecure: env.COOKIE_SECURE,
     sessionTtlDays: env.SESSION_TTL_DAYS,

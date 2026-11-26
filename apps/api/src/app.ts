@@ -20,7 +20,11 @@ import { devRoutes } from './routes/dev.js';
 import { healthRoutes } from './routes/health.js';
 import { onboardingRoutes } from './routes/onboarding.js';
 import { tenantRoutes } from './routes/tenant/index.js';
+import { webhookRoutes } from './routes/webhooks.js';
 import { createServices } from './services/index.js';
+
+/** Development and tests only; production sets MAIL_WEBHOOK_SECRET. */
+export const DEV_MAIL_WEBHOOK_SECRET = 'dev-mail-webhook-secret';
 
 export interface AppDeps {
   prisma: PrismaClient;
@@ -32,6 +36,8 @@ export interface AppDeps {
   cookieSecure?: boolean;
   sessionTtlDays?: number;
   authRateLimitPerMin?: number;
+  /** Shared secret for the mail provider's webhook signature. */
+  mailWebhookSecret?: string;
   /** Overrides the DB check (tests simulate an outage with it). */
   pingDatabase?: () => Promise<boolean>;
   sentry?: boolean;
@@ -82,8 +88,12 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
   await app.register(countyRoutes, { services });
   await app.register(adminRoutes, { services });
   await app.register(tenantRoutes, { services, prefix: '/orgs/:orgSlug' });
+  await app.register(webhookRoutes, {
+    services,
+    mailSecret: deps.mailWebhookSecret ?? DEV_MAIL_WEBHOOK_SECRET,
+  });
   if (deps.mail instanceof DevFileMailProvider) {
-    await app.register(devRoutes, { mailbox: deps.mail });
+    await app.register(devRoutes, { mailbox: deps.mail, services });
   }
 
   return app;

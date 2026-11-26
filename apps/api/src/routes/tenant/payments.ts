@@ -22,6 +22,8 @@ import {
   statementPdf,
   todayIn,
 } from '../../services/billing.js';
+import type { JobQueue } from '../../jobs.js';
+import { queueReceipt } from '../../services/email.js';
 import { INVOICE_SUMMARY_INCLUDE, toInvoiceSummary } from './invoices.js';
 import { day, money } from './mappers.js';
 import { actorOf, Ok, OrgIdParams, OrgParams } from './params.js';
@@ -32,6 +34,7 @@ const PAYMENT_INCLUDE = {
   contact: { select: { id: true, displayName: true, clientNumber: true } },
   createdBy: { select: { name: true } },
   allocations: { include: { invoice: { select: { number: true } } }, orderBy: { id: 'asc' } },
+  deliveries: { orderBy: { id: 'desc' }, take: 1, select: { status: true, toEmail: true } },
 } as const;
 
 function toPayment(p: Prisma.PaymentGetPayload<{ include: typeof PAYMENT_INCLUDE }>): PaymentDto {
@@ -53,6 +56,7 @@ function toPayment(p: Prisma.PaymentGetPayload<{ include: typeof PAYMENT_INCLUDE
     })),
     createdBy: p.createdBy?.name ?? null,
     createdAt: p.createdAt.toISOString(),
+    receipt: p.deliveries[0] ?? null,
   };
 }
 
@@ -65,7 +69,7 @@ async function onePayment(db: Db, id: number) {
   return toPayment(p);
 }
 
-export const paymentRoutes: FastifyPluginAsyncZod = async (app) => {
+export const paymentRoutes: FastifyPluginAsyncZod<{ jobs: JobQueue }> = async (app, { jobs }) => {
   app.get(
     '/payments',
     {
@@ -121,6 +125,7 @@ export const paymentRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request, reply) => {
       const { db, orgId, userId } = tenantOf(request);
       const id = await createPayment(db, orgId, request.body, userId);
+      if (request.body.sendReceipt) await queueReceipt(db, orgId, jobs, id, userId);
       const p = await onePayment(db, id);
       await recordAudit(db, orgId, actorOf(request), {
         action: 'payment.recorded',
@@ -163,7 +168,13 @@ export const paymentRoutes: FastifyPluginAsyncZod = async (app) => {
       const { db } = tenantOf(request);
       const c = await db.contact.findUnique({
         where: { id: request.params.id },
-        select: { id: true, displayName: true, clientNumber: true },
+        select: {
+          id: true,
+          displayName: true,
+          clientNumber: true,
+          email: true,
+          billingEmail: true,
+        },
       });
       if (!c) throw notFound('That client was not found.');
       const org = await db.org.findFirstOrThrow({ select: { timezone: true } });
@@ -175,7 +186,8 @@ export const paymentRoutes: FastifyPluginAsyncZod = async (app) => {
       });
       const items = open.map((i) => toInvoiceSummary(i, today));
       return {
-        contact: c,
+        contact: { id: c.id, displayName: c.displayName, clientNumber: c.clientNumber },
+        hasEmail: Boolean(c.billingEmail ?? c.email),
         credit: await clientCredit(db, c.id),
         openBalance: sumMoney(items.map((i) => i.balance)),
         pastDueBalance: sumMoney(

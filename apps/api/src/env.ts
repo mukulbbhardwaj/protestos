@@ -14,6 +14,8 @@ const EnvSchema = z.object({
   DEV_MAIL_DIR: z.string().optional(),
   /** Where uploaded files live in development (shared with the worker). S3-compatible storage later. */
   STORAGE_DIR: z.string().optional(),
+  /** Signs the mail provider's webhook (M5). Required in production. */
+  MAIL_WEBHOOK_SECRET: z.string().min(16).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   LOG_PRETTY: z.stringbool().default(false),
   SENTRY_DSN: z.string().optional(),

@@ -1,6 +1,6 @@
 import { roleAtLeast, type InvoiceSummary } from '@app/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, Send } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EmptyRow } from '@/components/data/EmptyRow';
@@ -25,8 +25,10 @@ import { qs, useUrlState } from '@/hooks/useUrlState';
 import { api } from '@/lib/api';
 import { formatDay, formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { DeliveryBadge } from './DeliveryBadge';
 import { GenerateDialog } from './GenerateDialog';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
+import { SendInvoicesDialog } from './SendInvoicesDialog';
 
 interface Page {
   items: InvoiceSummary[];
@@ -36,7 +38,7 @@ interface Page {
   totals: { count: number; total: string; balance: string };
 }
 
-const KEYS = ['q', 'status', 'taxYear', 'sort'] as const;
+const KEYS = ['q', 'status', 'taxYear', 'delivery', 'sort'] as const;
 const TABS = [
   ['', 'All'],
   ['DRAFT', 'Drafts'],
@@ -52,6 +54,8 @@ export function InvoicesPage() {
   const navigate = useNavigate();
   const { values, set, page } = useUrlState(KEYS);
   const [generating, setGenerating] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [sending, setSending] = useState(false);
   const canEdit = roleAtLeast(org.role, 'STAFF');
   const thisYear = new Date().getFullYear();
 
@@ -70,9 +74,16 @@ export function InvoicesPage() {
         description="Contingency invoices from notice and final values. Generate drafts for a tax year, review, then issue."
         actions={
           canEdit && (
-            <Button onClick={() => setGenerating(true)}>
-              <Plus /> Generate invoices
-            </Button>
+            <>
+              {selected.size > 0 && (
+                <Button variant="outline" onClick={() => setSending(true)}>
+                  <Send /> Send {selected.size}
+                </Button>
+              )}
+              <Button onClick={() => setGenerating(true)}>
+                <Plus /> Generate invoices
+              </Button>
+            </>
           )
         }
       />
@@ -114,6 +125,17 @@ export function InvoicesPage() {
             ))}
           </NativeSelect>
           <NativeSelect
+            aria-label="Email"
+            className="w-auto"
+            value={values.delivery}
+            onChange={(e) => set({ delivery: e.target.value })}
+          >
+            <option value="">Any email status</option>
+            <option value="NOT_SENT">Not emailed</option>
+            <option value="SENT">Emailed</option>
+            <option value="BOUNCED">Bounced</option>
+          </NativeSelect>
+          <NativeSelect
             aria-label="Sort"
             className="w-auto"
             value={values.sort || 'newest'}
@@ -147,12 +169,31 @@ export function InvoicesPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {canEdit && (
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all on this page"
+                    checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+                    onChange={(e) =>
+                      setSelected(
+                        new Set(
+                          e.target.checked
+                            ? [...selected, ...rows.map((r) => r.id)]
+                            : [...selected].filter((id) => !rows.some((r) => r.id === id)),
+                        ),
+                      )
+                    }
+                  />
+                </TableHead>
+              )}
               <TableHead>Invoice</TableHead>
               <TableHead>Client</TableHead>
               <TableHead className="text-right">Tax year</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="hidden md:table-cell">Issued</TableHead>
               <TableHead className="hidden md:table-cell">Due</TableHead>
+              <TableHead className="hidden lg:table-cell">Email</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Balance</TableHead>
             </TableRow>
@@ -161,14 +202,14 @@ export function InvoicesPage() {
             {query.isPending &&
               Array.from({ length: 6 }, (_, i) => (
                 <TableRow key={i}>
-                  <TableCell colSpan={8}>
+                  <TableCell colSpan={10}>
                     <Skeleton className="h-5 w-full" />
                   </TableCell>
                 </TableRow>
               ))}
             {query.data && rows.length === 0 && (
               <EmptyRow
-                colSpan={8}
+                colSpan={10}
                 message={
                   values.q || values.status || values.taxYear
                     ? 'No invoices match these filters.'
@@ -182,6 +223,21 @@ export function InvoicesPage() {
                 className="cursor-pointer"
                 onClick={() => navigate(`/${org.orgSlug}/invoices/${i.id}`)}
               >
+                {canEdit && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${i.number ?? `draft ${i.id}`}`}
+                      checked={selected.has(i.id)}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(i.id);
+                        else next.delete(i.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <Link
                     to={`/${org.orgSlug}/invoices/${i.id}`}
@@ -208,6 +264,9 @@ export function InvoicesPage() {
                 </TableCell>
                 <TableCell className="hidden md:table-cell">{formatDay(i.issueDate)}</TableCell>
                 <TableCell className="hidden md:table-cell">{formatDay(i.dueDate)}</TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  {i.delivery ? <DeliveryBadge status={i.delivery.status} /> : null}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{formatMoney(i.total)}</TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
                   {formatMoney(i.balance)}
@@ -226,6 +285,14 @@ export function InvoicesPage() {
         )}
       </Card>
       <GenerateDialog open={generating} onOpenChange={setGenerating} defaultYear={thisYear} />
+      {sending && (
+        <SendInvoicesDialog
+          invoiceIds={[...selected]}
+          open={sending}
+          onOpenChange={setSending}
+          onSent={() => setSelected(new Set())}
+        />
+      )}
     </>
   );
 }

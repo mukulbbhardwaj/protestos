@@ -168,6 +168,23 @@ enum PaymentMethod {
   OTHER
 }
 
+enum EmailTemplateKey {
+  INVOICE
+  INVOICE_ZERO_SAVINGS
+  PAYMENT_RECEIPT
+  DOC_REMINDER
+  PROSPECT_OUTREACH
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  BOUNCED
+  FAILED
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -218,20 +235,22 @@ model Org {
   createdAt              DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime        @updatedAt @db.Timestamptz(6)
 
-  memberships  Membership[]
-  auditLogs    AuditLog[]
-  invitations  Invitation[]
-  settings     OrgSetting[]
-  contacts     Contact[]
-  properties   Property[]
-  taxYears     TaxYearRecord[]
-  stageEvents  ProtestStageEvent[]
-  imports      ImportJob[]
-  importRows   ImportRow[]
-  invoices     Invoice[]
-  invoiceLines InvoiceLine[]
-  payments     Payment[]
-  allocations  PaymentAllocation[]
+  memberships    Membership[]
+  auditLogs      AuditLog[]
+  invitations    Invitation[]
+  settings       OrgSetting[]
+  contacts       Contact[]
+  properties     Property[]
+  taxYears       TaxYearRecord[]
+  stageEvents    ProtestStageEvent[]
+  imports        ImportJob[]
+  importRows     ImportRow[]
+  invoices       Invoice[]
+  invoiceLines   InvoiceLine[]
+  payments       Payment[]
+  allocations    PaymentAllocation[]
+  emailTemplates EmailTemplate[]
+  deliveries     EmailDelivery[]
 }
 
 model User {
@@ -255,6 +274,8 @@ model User {
   imports         ImportJob[]
   invoicesCreated Invoice[]
   paymentsCreated Payment[]
+  templatesEdited EmailTemplate[]
+  deliveriesSent  EmailDelivery[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -482,10 +503,11 @@ model Contact {
   createdAt      DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
 
-  org        Org        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
   properties Property[]
   invoices   Invoice[]
   payments   Payment[]
+  deliveries EmailDelivery[]
 
   /// Target of same-org composite foreign keys.
   @@unique([orgId, id])
@@ -695,6 +717,7 @@ model Invoice {
   createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
   lines       InvoiceLine[]
   allocations PaymentAllocation[]
+  deliveries  EmailDelivery[]
 
   @@unique([orgId, id])
   @@unique([orgId, number])
@@ -748,6 +771,7 @@ model Payment {
   contact     Contact             @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
   createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
   allocations PaymentAllocation[]
+  deliveries  EmailDelivery[]
 
   @@unique([orgId, id])
   @@index([orgId, contactId])
@@ -769,4 +793,60 @@ model PaymentAllocation {
 
   @@unique([paymentId, invoiceId])
   @@index([orgId, invoiceId])
+}
+
+/// A firm's edited copy of a built-in email (BUILD_PLAN 5.8). No row = the built-in default.
+model EmailTemplate {
+  id          Int              @id @default(autoincrement())
+  orgId       Int
+  key         EmailTemplateKey
+  subject     String
+  /// Plain text with {{placeholders}}; rendered and escaped at send time.
+  body        String
+  updatedById Int?
+  createdAt   DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(6)
+
+  org       Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, key])
+}
+
+/// One email to one recipient, tracked through the provider's webhook (M5).
+model EmailDelivery {
+  id                Int              @id @default(autoincrement())
+  orgId             Int
+  templateKey       EmailTemplateKey
+  contactId         Int
+  invoiceId         Int?
+  paymentId         Int?
+  toEmail           String
+  subject           String?
+  provider          String?
+  /// Set when the provider accepts it; webhooks find the delivery (and its org) by this.
+  providerMessageId String?          @unique
+  status            DeliveryStatus   @default(QUEUED)
+  /// Provider events as received: [{ id, type, at, detail }]. Event ids make webhooks idempotent.
+  events            Json             @default("[]")
+  attachmentKeys    String[]         @default([])
+  error             String?
+  /// Request key + target: the same send request never creates (or sends) a second email.
+  idempotencyKey    String
+  createdById       Int?
+  queuedAt          DateTime         @default(now()) @db.Timestamptz(6)
+  sentAt            DateTime?        @db.Timestamptz(6)
+  lastEventAt       DateTime?        @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  invoice   Invoice? @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Cascade)
+  payment   Payment? @relation(fields: [orgId, paymentId], references: [orgId, id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, invoiceId])
+  @@index([orgId, status])
 }

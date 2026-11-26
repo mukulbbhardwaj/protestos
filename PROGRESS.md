@@ -11,12 +11,46 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M2.5 Tax savings calculator              | ✅ Done (awaiting review) |
 | M3 CSV import                            | ✅ Done (awaiting review) |
 | M4 Invoicing and payments                | ✅ Done (awaiting review) |
-| M5 Email and delivery tracking           | Not started               |
+| M5 Email and delivery tracking           | ✅ Done (awaiting review) |
 | M6 Documents and e-signature             | Not started               |
 | M7 Hearings and dashboards               | Not started               |
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M5: Email and delivery tracking (2026-11-26)
+
+ADR 009. Provider: mock for now (Mukul, 2026-11-26); Postmark or Brevo plugs into `MailProvider`.
+
+### Done
+
+- **Templates** (Settings → Emails, admins): invoice, invoice with no reduction, payment
+  receipt, document reminder, prospect outreach. Plain text with placeholders, click to insert,
+  live preview with sample values, typos caught on save, "Use built-in" to reset.
+- **Send invoices** one at a time (invoice page) or in bulk (select rows on Invoices). The
+  dialog previews each recipient (billing email, else email) and lists what won't be sent
+  (drafts, no email, imported). Zero-savings invoices get the no-reduction email. PDF attached.
+- **Queue and idempotency:** one `EmailDelivery` per email, sent by the worker with retries;
+  the same send request never sends twice.
+- **Tracking:** signed webhook updates each email to delivered / opened / bounced; the invoice
+  shows its emails and their events, the list has an Email column and filter (not emailed,
+  emailed, bounced), and the dashboard shows a bounce alert.
+- **Payment receipts:** "Email the client a receipt" when recording a payment.
+- Dev mailbox: shows attachments and can mark an email delivered, opened or bounced.
+
+### Verified
+
+- **M5 "done when"** (`apps/api/test/email.test.ts`): 50 invoices bulk-sent, 50 emails each
+  tracked through delivered/opened/bounced via signed webhooks, the bounce shows on the
+  invoice list filter, invoice detail and dashboard; the same request sent again sends
+  nothing new; replayed events change nothing; unsigned webhooks get 401.
+- Also: skipped reasons, zero-savings template, provider failure → FAILED with the error,
+  receipt wording, template validation/preview/reset, roles. Isolation for the 5 new routes.
+- Clicked through with the worker running: email sent to the dev mailbox with the PDF,
+  bounce marked, dashboard alert shown.
+- 363 unit/integration tests and 10 Playwright tests; lint, typecheck, build.
 
 ---
 

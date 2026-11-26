@@ -414,6 +414,8 @@ export const DashboardStats = z.object({
   propertiesThisYear: z.number(),
   newProspects30d: z.number(),
   myProperties: z.number(),
+  /** Bounced emails in the last 30 days (M5): shown as a dashboard alert. */
+  bouncedEmails: z.number(),
   stages: z.array(z.object({ stage: z.enum(PROTEST_STAGES), count: z.number() })),
 });
 export type DashboardStats = z.infer<typeof DashboardStats>;

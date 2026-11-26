@@ -44,6 +44,9 @@ importers:
       '@app/imports':
         specifier: workspace:*
         version: link:../../packages/imports
+      '@app/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       '@app/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
@@ -169,6 +172,9 @@ importers:
       '@app/imports':
         specifier: workspace:*
         version: link:../../packages/imports
+      '@app/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       '@app/providers':
         specifier: workspace:*
         version: link:../../packages/providers
@@ -227,6 +233,22 @@ importers:
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@22.20.6)(@vitest/coverage-v8@5.1.1)(vite@8.3.8(@types/node@22.20.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/imports:
+    dependencies:
+      '@app/db':
+        specifier: workspace:*
+        version: link:../db
+      '@app/providers':
+        specifier: workspace:*
+        version: link:../providers
+      '@app/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.6
+        version: 22.20.6
+
+  packages/mailer:
     dependencies:
       '@app/db':
         specifier: workspace:*

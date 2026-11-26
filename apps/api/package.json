@@ -22,7 +22,8 @@
     "@fastify/rate-limit": "11.3.0",
     "pg-boss": "12.39.0",
     "@app/imports": "workspace:*",
-    "@app/pdf": "workspace:*"
+    "@app/pdf": "workspace:*",
+    "@app/mailer": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.6",

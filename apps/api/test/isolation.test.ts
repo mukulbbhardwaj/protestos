@@ -15,7 +15,7 @@ import {
   type TestContext,
 } from './helpers.js';
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 type Target =
   | 'member'
   | 'invitation'
@@ -132,6 +132,19 @@ const CASES: IsolationCase[] = [
   { method: 'GET', path: '/contacts/:id/billing', targetB: 'contact' },
   { method: 'POST', path: '/contacts/:id/apply-credit', targetB: 'contact' },
   { method: 'GET', path: '/contacts/:id/statement.pdf', targetB: 'contact' },
+  { method: 'GET', path: '/email-templates' },
+  {
+    method: 'PUT',
+    path: '/email-templates',
+    body: { key: 'INVOICE', subject: 'Taken', body: 'Taken' },
+  },
+  { method: 'POST', path: '/email-templates/reset', body: { key: 'INVOICE' } },
+  {
+    method: 'POST',
+    path: '/email-templates/preview',
+    body: { key: 'INVOICE', subject: 'x', body: 'y' },
+  },
+  { method: 'POST', path: '/invoices/send', body: { invoiceIds: [1], requestKey: 'isolation-1' } },
   { method: 'GET', path: '/calculator/coverage' },
   { method: 'GET', path: '/calculator/facets?countyId=1&taxYear=2026' },
   { method: 'GET', path: '/calculator/parcels?countyId=1&taxYear=2026' },
@@ -167,6 +180,8 @@ async function snapshotB() {
     invoiceLines: await t.prisma.invoiceLine.findMany({ where, orderBy: { id: 'asc' } }),
     payments: await t.prisma.payment.findMany({ where, orderBy: { id: 'asc' } }),
     allocations: await t.prisma.paymentAllocation.findMany({ where, orderBy: { id: 'asc' } }),
+    emailTemplates: await t.prisma.emailTemplate.findMany({ where, orderBy: { id: 'asc' } }),
+    deliveries: await t.prisma.emailDelivery.findMany({ where, orderBy: { id: 'asc' } }),
     stageEvents: await t.prisma.protestStageEvent.count({ where }),
     audit: await t.prisma.auditLog.count({ where }),
   });
@@ -324,6 +339,21 @@ beforeAll(async () => {
   await t.prisma.paymentAllocation.create({
     data: { orgId: ownerB.org.id, paymentId: paymentB.id, invoiceId: issuedB.id, amount: '30' },
   });
+  await t.prisma.emailTemplate.create({
+    data: { orgId: ownerB.org.id, key: 'INVOICE', subject: 'Bravo subject', body: 'Bravo body' },
+  });
+  await t.prisma.emailDelivery.create({
+    data: {
+      orgId: ownerB.org.id,
+      templateKey: 'INVOICE',
+      contactId: contactB.id,
+      invoiceId: issuedB.id,
+      toEmail: 'client@bravo.test',
+      status: 'SENT',
+      providerMessageId: 'bravo-message',
+      idempotencyKey: 'bravo:1',
+    },
+  });
   b.ids.invoice = invoiceB.id;
   b.ids.payment = paymentB.id;
   lineIdB = lineB.id;
@@ -405,6 +435,8 @@ beforeAll(async () => {
         allocations: [{ invoiceId: issuedB.id, amount: '1' }],
       };
     if (c.path === '/invoices/generate') c.body = { taxYear: 2026, contactIds: [contactB.id] };
+    if (c.path === '/invoices/send')
+      c.body = { invoiceIds: [issuedB.id], requestKey: 'isolation-1' };
   }
 
   // Give org A its own rows of every kind too, so list routes have something to return.

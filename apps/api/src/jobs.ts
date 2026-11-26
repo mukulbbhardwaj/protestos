@@ -8,7 +8,15 @@ export interface JobQueue {
 export const JOBS = {
   /** Run a previewed CSV import (apps/worker). */
   importRun: 'imports.run',
+  /** Send one queued email (packages/mailer). */
+  mailDeliver: 'mail.deliver',
 } as const;
+
+/** Emails retry with backoff (the provider gets the same idempotency key each time). */
+export const QUEUE_OPTIONS: Record<
+  string,
+  { retryLimit: number; retryDelay: number; retryBackoff: boolean }
+> = { [JOBS.mailDeliver]: { retryLimit: 4, retryDelay: 30, retryBackoff: true } };
 
 /** pg-boss on the app database: the same queue the worker listens to. */
 export async function createPgBossQueue(
@@ -16,7 +24,7 @@ export async function createPgBossQueue(
 ): Promise<JobQueue & { stop(): Promise<void> }> {
   const boss = new PgBoss(connectionString);
   await boss.start();
-  for (const name of Object.values(JOBS)) await boss.createQueue(name);
+  for (const name of Object.values(JOBS)) await boss.createQueue(name, QUEUE_OPTIONS[name]);
   return {
     async send(name, data) {
       await boss.send(name, data);

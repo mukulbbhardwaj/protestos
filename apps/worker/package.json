@@ -18,7 +18,8 @@
     "zod": "4.6.7",
     "@app/imports": "workspace:*",
     "@app/db": "workspace:*",
-    "@app/providers": "workspace:*"
+    "@app/providers": "workspace:*",
+    "@app/mailer": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.6",

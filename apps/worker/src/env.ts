@@ -12,9 +12,11 @@ const EnvSchema = z.object({
   APP_VERSION: z.string().default('dev'),
   /** Uploaded files (shared with the API). */
   STORAGE_DIR: z.string().optional(),
+  /** Development emails (shared with the API's dev mailbox). */
+  DEV_MAIL_DIR: z.string().optional(),
 });
 
-export type Env = z.infer<typeof EnvSchema> & { STORAGE_DIR: string };
+export type Env = z.infer<typeof EnvSchema> & { STORAGE_DIR: string; DEV_MAIL_DIR: string };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (source === process.env) loadRootEnv();
@@ -26,5 +28,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     ...parsed.data,
     STORAGE_DIR:
       parsed.data.STORAGE_DIR ?? join(findWorkspaceRoot() ?? process.cwd(), '.dev-storage'),
+    DEV_MAIL_DIR:
+      parsed.data.DEV_MAIL_DIR ?? join(findWorkspaceRoot() ?? process.cwd(), '.dev-mail'),
   };
 }
