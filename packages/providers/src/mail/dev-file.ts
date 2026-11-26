@@ -3,9 +3,10 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { MailMessage, MailProvider, SentMail } from './types.js';
 
-export interface StoredMail extends MailMessage {
+export interface StoredMail extends Omit<MailMessage, 'attachments'> {
   id: string;
   sentAt: string;
+  attachments: { filename: string; contentType: string; bytes: number }[];
 }
 
 /**
@@ -22,7 +23,18 @@ export class DevFileMailProvider implements MailProvider {
     await mkdir(this.dir, { recursive: true });
     const id = randomUUID();
     const sentAt = new Date().toISOString();
-    const stored: StoredMail = { ...message, id, sentAt };
+    const { attachments = [], ...rest } = message;
+    // Attachments are listed, not stored: the dev mailbox only needs to show they were there.
+    const stored: StoredMail = {
+      ...rest,
+      id,
+      sentAt,
+      attachments: attachments.map((a) => ({
+        filename: a.filename,
+        contentType: a.contentType,
+        bytes: a.content.length,
+      })),
+    };
     // Sortable file name: timestamp, then a per-process sequence for same-millisecond sends.
     const name = `${Date.now()}-${String(this.seq++).padStart(6, '0')}-${id}.json`;
     await writeFile(join(this.dir, name), JSON.stringify(stored, null, 2));

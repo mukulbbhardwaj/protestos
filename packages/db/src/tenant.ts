@@ -13,6 +13,18 @@ export const TENANT_MODELS = [
   'Property',
   'TaxYearRecord',
   'ProtestStageEvent',
+  'ImportJob',
+  'ImportRow',
+  'Invoice',
+  'InvoiceLine',
+  'Payment',
+  'PaymentAllocation',
+  'EmailTemplate',
+  'EmailDelivery',
+  'DocumentTemplate',
+  'SignatureEnvelope',
+  'Document',
+  'DocumentProperty',
 ] as const;
 
 /** Readable through `forOrg` (User filtered by RLS; the rest is shared reference data) but never writable. */

@@ -16,6 +16,7 @@ packages/db/src/generated/
 # playwright
 apps/web/test-results/
 apps/web/playwright-report/
+apps/web/e2e/.auth/
 apps/web/blob-report/
 .dev-mail/
 .vercel
@@ -28,3 +29,4 @@ docs/denton/
 docs/pdf/
 reports/
 research_notes/
+.dev-storage/

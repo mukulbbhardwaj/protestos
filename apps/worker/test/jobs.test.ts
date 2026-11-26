@@ -13,6 +13,6 @@ describe('job registry', () => {
     const job = { id: '1', name: heartbeatJob.name, data: {} } as Parameters<
       typeof heartbeatJob.handle
     >[0][number];
-    await expect(heartbeatJob.handle([job], log)).resolves.toBeUndefined();
+    await expect(heartbeatJob.handle([job], log, {} as never)).resolves.toBeUndefined();
   });
 });

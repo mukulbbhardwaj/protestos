@@ -100,6 +100,107 @@ enum TaxUnitKind {
   OTHER
 }
 
+/// BUILD_PLAN 5.8. HISTORICAL_INVOICES arrives with invoices (M4).
+enum ImportKind {
+  CONTACTS_PROPERTIES
+  TAX_YEAR_VALUES
+  HISTORICAL_INVOICES
+}
+
+enum ImportStatus {
+  UPLOADED
+  PREVIEWED
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// What a row did (or would do, in a dry run).
+enum ImportAction {
+  CREATE
+  UPDATE
+  UNCHANGED
+  ERROR
+}
+
+enum ImportPhase {
+  PREVIEW
+  APPLY
+}
+
+enum InvoiceGrouping {
+  /// One invoice per client per tax year, a line per property (BUILD_PLAN 5.6 default).
+  CLIENT_YEAR
+  /// One invoice per property per tax year.
+  PROPERTY_YEAR
+}
+
+/// PARTIALLY_PAID and PAID are derived from allocations; past due is never stored.
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  VOID
+  WRITTEN_OFF
+}
+
+enum InvoiceTemplate {
+  STANDARD
+  ARBITRATION
+  HOMESTEAD
+  ZERO_SAVINGS
+}
+
+enum InvoiceLineKind {
+  CONTINGENCY
+  FLAT
+  BPP
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  ZELLE
+  CHECK
+  ACH
+  CASH
+  CARD
+  OTHER
+}
+
+enum DocumentKind {
+  ENGAGEMENT_CONTRACT
+  /// Texas Form 50-162, Appointment of Agent for Property Tax Matters.
+  AOA_50_162
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  DECLINED
+  VOIDED
+}
+
+enum EmailTemplateKey {
+  DOC_REQUEST
+  INVOICE
+  INVOICE_ZERO_SAVINGS
+  PAYMENT_RECEIPT
+  DOC_REMINDER
+  PROSPECT_OUTREACH
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  BOUNCED
+  FAILED
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -115,46 +216,68 @@ enum PlanStatus {
 }
 
 model Org {
-  id                     Int          @id @default(autoincrement())
+  id                     Int             @id @default(autoincrement())
   name                   String
-  slug                   String       @unique
-  state                  String       @default("TX") @db.Char(2)
-  timezone               String       @default("America/Chicago")
+  slug                   String          @unique
+  state                  String          @default("TX") @db.Char(2)
+  timezone               String          @default("America/Chicago")
   logoKey                String?
   primaryColor           String?
-  addressLines           String[]     @default([])
+  addressLines           String[]        @default([])
   phone                  String?
   website                String?
-  defaultContingencyPct  Decimal      @default(0) @db.Decimal(9, 4)
-  defaultFlatFee         Decimal      @default(0) @db.Decimal(15, 2)
-  defaultBppFee          Decimal      @default(0) @db.Decimal(15, 2)
-  invoicePrefix          String       @default("INV-")
-  nextInvoiceNumber      Int          @default(1)
-  invoiceDueDays         Int          @default(30)
+  defaultContingencyPct  Decimal         @default(0) @db.Decimal(9, 4)
+  defaultFlatFee         Decimal         @default(0) @db.Decimal(15, 2)
+  defaultBppFee          Decimal         @default(0) @db.Decimal(15, 2)
+  invoicePrefix          String          @default("INV-")
+  nextInvoiceNumber      Int             @default(1)
+  invoiceDueDays         Int             @default(30)
   /// The current billing (protest) year. Null means the calendar year.
   taxYearDefault         Int?
-  nextClientNumber       Int          @default(1001)
+  nextClientNumber       Int             @default(1001)
   /// BUILD_PLAN 7 [ASK]: which value savings are measured on.
-  savingsBasis           SavingsBasis @default(APPRAISED)
+  savingsBasis           SavingsBasis    @default(APPRAISED)
   /// The flat fee is only charged on the current billing year (reference-app rule).
-  flatFeeCurrentYearOnly Boolean      @default(true)
-  stripeCustomerId       String?      @unique
-  plan                   Plan         @default(STARTER)
-  planStatus             PlanStatus   @default(TRIALING)
-  trialEndsAt            DateTime?    @db.Timestamptz(6)
+  flatFeeCurrentYearOnly Boolean         @default(true)
+  invoiceGrouping        InvoiceGrouping @default(CLIENT_YEAR)
+  /// Form 50-162 agent section (BUILD_PLAN 8.8): the person or firm appointed.
+  agentName              String?
+  agentTitle             String?
+  /// TDLR property tax consultant registration number.
+  agentLicense           String?
+  /// Allow sending a document again after it was signed.
+  allowResendSigned      Boolean         @default(false)
+  /// Printed on invoices: Zelle, check address, ACH details.
+  paymentInstructions    String?
+  stripeCustomerId       String?         @unique
+  plan                   Plan            @default(STARTER)
+  planStatus             PlanStatus      @default(TRIALING)
+  trialEndsAt            DateTime?       @db.Timestamptz(6)
   propertyLimit          Int?
   seatLimit              Int?
-  createdAt              DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime     @updatedAt @db.Timestamptz(6)
+  createdAt              DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime        @updatedAt @db.Timestamptz(6)
 
-  memberships Membership[]
-  auditLogs   AuditLog[]
-  invitations Invitation[]
-  settings    OrgSetting[]
-  contacts    Contact[]
-  properties  Property[]
-  taxYears    TaxYearRecord[]
-  stageEvents ProtestStageEvent[]
+  memberships        Membership[]
+  auditLogs          AuditLog[]
+  invitations        Invitation[]
+  settings           OrgSetting[]
+  contacts           Contact[]
+  properties         Property[]
+  taxYears           TaxYearRecord[]
+  stageEvents        ProtestStageEvent[]
+  imports            ImportJob[]
+  importRows         ImportRow[]
+  invoices           Invoice[]
+  invoiceLines       InvoiceLine[]
+  payments           Payment[]
+  allocations        PaymentAllocation[]
+  emailTemplates     EmailTemplate[]
+  deliveries         EmailDelivery[]
+  documentTemplates  DocumentTemplate[]
+  documents          Document[]
+  documentProperties DocumentProperty[]
+  envelopes          SignatureEnvelope[]
 }
 
 model User {
@@ -168,13 +291,21 @@ model User {
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
 
-  memberships     Membership[]
-  auditLogs       AuditLog[]
-  sessions        Session[]
-  authTokens      AuthToken[]
-  invitationsSent Invitation[]
-  consultantFor   Property[]
-  stageEvents     ProtestStageEvent[]
+  memberships             Membership[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  authTokens              AuthToken[]
+  invitationsSent         Invitation[]
+  consultantFor           Property[]
+  stageEvents             ProtestStageEvent[]
+  imports                 ImportJob[]
+  invoicesCreated         Invoice[]
+  paymentsCreated         Payment[]
+  templatesEdited         EmailTemplate[]
+  deliveriesSent          EmailDelivery[]
+  documentTemplatesEdited DocumentTemplate[]
+  documentsCreated        Document[]
+  envelopesSent           SignatureEnvelope[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -402,8 +533,13 @@ model Contact {
   createdAt      DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
 
-  org        Org        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
   properties Property[]
+  invoices   Invoice[]
+  payments   Payment[]
+  deliveries EmailDelivery[]
+  documents  Document[]
+  envelopes  SignatureEnvelope[]
 
   /// Target of same-org composite foreign keys.
   @@unique([orgId, id])
@@ -441,12 +577,14 @@ model Property {
   createdAt           DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime     @updatedAt @db.Timestamptz(6)
 
-  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org          Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
   // Composite FK: a property can only belong to a contact in the same org.
-  contact    Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
-  county     County          @relation(fields: [countyId], references: [id])
-  consultant User?           @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
-  taxYears   TaxYearRecord[]
+  contact      Contact            @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  county       County             @relation(fields: [countyId], references: [id])
+  consultant   User?              @relation(fields: [consultantUserId], references: [id], onDelete: SetNull)
+  taxYears     TaxYearRecord[]
+  invoiceLines InvoiceLine[]
+  documents    DocumentProperty[]
 
   @@unique([orgId, id])
   @@unique([orgId, countyId, accountNumber])
@@ -490,9 +628,10 @@ model TaxYearRecord {
   createdAt              DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime     @updatedAt @db.Timestamptz(6)
 
-  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  property    Property            @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
-  stageEvents ProtestStageEvent[]
+  org          Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  property     Property            @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
+  stageEvents  ProtestStageEvent[]
+  invoiceLines InvoiceLine[]
 
   @@unique([orgId, id])
   @@unique([propertyId, taxYear])
@@ -517,4 +656,329 @@ model ProtestStageEvent {
   actor         User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([orgId, taxYearRecordId, at])
+}
+
+/// A CSV import (BUILD_PLAN 8.9): upload → mapping → dry run → confirm → background job.
+model ImportJob {
+  id            Int          @id @default(autoincrement())
+  orgId         Int
+  kind          ImportKind
+  status        ImportStatus @default(UPLOADED)
+  /// Storage key of the uploaded file (org/{orgId}/imports/…).
+  fileKey       String
+  fileName      String
+  rowCount      Int
+  /// The file's header row, as written.
+  headers       String[]
+  /// { [header]: field key } — which column feeds which field.
+  columnMapping Json         @default("{}")
+  /// Counts per action, from the latest dry run or run: { CREATE, UPDATE, UNCHANGED, ERROR }.
+  summary       Json?
+  /// Why a run failed as a whole (row-level problems are ImportRow errors).
+  error         String?
+  createdById   Int?
+  previewedAt   DateTime?    @db.Timestamptz(6)
+  startedAt     DateTime?    @db.Timestamptz(6)
+  finishedAt    DateTime?    @db.Timestamptz(6)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(6)
+
+  org       Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  rows      ImportRow[]
+
+  @@unique([orgId, id])
+  @@index([orgId, createdAt])
+}
+
+/// One row's outcome. A dry run's rows are replaced by the run's.
+model ImportRow {
+  id          Int          @id @default(autoincrement())
+  orgId       Int
+  importJobId Int
+  phase       ImportPhase
+  /// 1-based data row number (the header row is not counted), as people see it in a spreadsheet + 1.
+  rowNumber   Int
+  action      ImportAction
+  /// Short description: "Jane Smith (1042) · Harris 0660640130020".
+  label       String?
+  /// Fields that changed (UPDATE) — names, not values.
+  changes     String[]     @default([])
+  messages    String[]     @default([])
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+
+  org       Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [orgId, importJobId], references: [orgId, id], onDelete: Cascade)
+
+  @@index([orgId, importJobId, phase, rowNumber])
+  @@index([orgId, importJobId, phase, action])
+}
+
+/// BUILD_PLAN 5.6. Totals are kept in step with lines and allocations by the billing service.
+model Invoice {
+  id             Int             @id @default(autoincrement())
+  orgId          Int
+  contactId      Int
+  /// Prefix + sequence, assigned at issue; null while a draft.
+  number         String?
+  taxYear        Int
+  status         InvoiceStatus   @default(DRAFT)
+  issueDate      DateTime?       @db.Date
+  dueDate        DateTime?       @db.Date
+  template       InvoiceTemplate @default(STANDARD)
+  subtotal       Decimal         @default(0) @db.Decimal(15, 2)
+  total          Decimal         @default(0) @db.Decimal(15, 2)
+  amountPaid     Decimal         @default(0) @db.Decimal(15, 2)
+  balance        Decimal         @default(0) @db.Decimal(15, 2)
+  currency       String          @default("USD") @db.Char(3)
+  pdfKey         String?
+  sentAt         DateTime?       @db.Timestamptz(6)
+  voidedAt       DateTime?       @db.Timestamptz(6)
+  voidReason     String?
+  writtenOffAt   DateTime?       @db.Timestamptz(6)
+  writeOffReason String?
+  notes          String?
+  /// Imported from the firm's old system (CSV): no fee snapshot behind it.
+  historical     Boolean         @default(false)
+  createdById    Int?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+
+  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact     Contact             @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lines       InvoiceLine[]
+  allocations PaymentAllocation[]
+  deliveries  EmailDelivery[]
+
+  @@unique([orgId, id])
+  @@unique([orgId, number])
+  @@index([orgId, status, dueDate])
+  @@index([orgId, contactId])
+  @@index([orgId, taxYear])
+  @@index([orgId, issueDate])
+}
+
+model InvoiceLine {
+  id              Int             @id @default(autoincrement())
+  orgId           Int
+  invoiceId       Int
+  propertyId      Int?
+  taxYearRecordId Int?
+  kind            InvoiceLineKind
+  description     String
+  /// Fee-engine inputs and outputs at issue time (BUILD_PLAN 7 "Snapshotting"). Frozen once issued.
+  snapshot        Json?
+  amount          Decimal         @db.Decimal(15, 2)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+
+  org           Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoice       Invoice        @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Cascade)
+  property      Property?      @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Restrict)
+  taxYearRecord TaxYearRecord? @relation(fields: [orgId, taxYearRecordId], references: [orgId, id], onDelete: Restrict)
+
+  @@index([orgId, invoiceId])
+  @@index([orgId, taxYearRecordId])
+}
+
+/// A payment from a client. What isn't allocated to invoices is the client's credit.
+model Payment {
+  id          Int           @id @default(autoincrement())
+  orgId       Int
+  contactId   Int
+  receivedAt  DateTime      @db.Date
+  amount      Decimal       @db.Decimal(15, 2)
+  method      PaymentMethod
+  reference   String?
+  notes       String?
+  createdById Int?
+  /// Deleted payments keep their row for the audit trail; their allocations are removed.
+  deletedAt   DateTime?     @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+
+  org         Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact     Contact             @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Restrict)
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  allocations PaymentAllocation[]
+  deliveries  EmailDelivery[]
+
+  @@unique([orgId, id])
+  @@index([orgId, contactId])
+  @@index([orgId, receivedAt])
+}
+
+model PaymentAllocation {
+  id        Int      @id @default(autoincrement())
+  orgId     Int
+  paymentId Int
+  invoiceId Int
+  amount    Decimal  @db.Decimal(15, 2)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  org     Org     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [orgId, paymentId], references: [orgId, id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Restrict)
+
+  @@unique([paymentId, invoiceId])
+  @@index([orgId, invoiceId])
+}
+
+/// A firm's edited copy of a built-in email (BUILD_PLAN 5.8). No row = the built-in default.
+model EmailTemplate {
+  id          Int              @id @default(autoincrement())
+  orgId       Int
+  key         EmailTemplateKey
+  subject     String
+  /// Plain text with {{placeholders}}; rendered and escaped at send time.
+  body        String
+  updatedById Int?
+  createdAt   DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(6)
+
+  org       Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, key])
+}
+
+/// One email to one recipient, tracked through the provider's webhook (M5).
+model EmailDelivery {
+  id                Int              @id @default(autoincrement())
+  orgId             Int
+  templateKey       EmailTemplateKey
+  contactId         Int
+  invoiceId         Int?
+  paymentId         Int?
+  envelopeId        Int?
+  toEmail           String
+  subject           String?
+  provider          String?
+  /// Set when the provider accepts it; webhooks find the delivery (and its org) by this.
+  providerMessageId String?          @unique
+  status            DeliveryStatus   @default(QUEUED)
+  /// Provider events as received: [{ id, type, at, detail }]. Event ids make webhooks idempotent.
+  events            Json             @default("[]")
+  attachmentKeys    String[]         @default([])
+  error             String?
+  /// Request key + target: the same send request never creates (or sends) a second email.
+  idempotencyKey    String
+  createdById       Int?
+  queuedAt          DateTime         @default(now()) @db.Timestamptz(6)
+  sentAt            DateTime?        @db.Timestamptz(6)
+  lastEventAt       DateTime?        @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+
+  org       Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact   Contact            @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  invoice   Invoice?           @relation(fields: [orgId, invoiceId], references: [orgId, id], onDelete: Cascade)
+  payment   Payment?           @relation(fields: [orgId, paymentId], references: [orgId, id], onDelete: Cascade)
+  envelope  SignatureEnvelope? @relation(fields: [orgId, envelopeId], references: [orgId, id], onDelete: Cascade)
+  createdBy User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, invoiceId])
+  @@index([orgId, status])
+}
+
+/// The firm's engagement contract wording (BUILD_PLAN 5.7). Plain text with placeholders;
+/// `version` goes up on every save and is recorded on each document made from it.
+model DocumentTemplate {
+  id          Int          @id @default(autoincrement())
+  orgId       Int
+  kind        DocumentKind
+  name        String
+  body        String
+  version     Int          @default(1)
+  updatedById Int?
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+
+  org       Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, kind])
+}
+
+/// One signing request: one signer, one or more documents (M6).
+model SignatureEnvelope {
+  id          Int            @id @default(autoincrement())
+  orgId       Int
+  contactId   Int
+  provider    String
+  /// The provider's envelope id; webhooks find the envelope (and its org) by this.
+  providerRef String         @unique
+  /// Mock provider only: the secret in the signing link (/sign/:token).
+  signToken   String?        @unique
+  status      DocumentStatus @default(SENT)
+  signerName  String
+  signerEmail String
+  events      Json           @default("[]")
+  createdById Int?
+  sentAt      DateTime       @default(now()) @db.Timestamptz(6)
+  viewedAt    DateTime?      @db.Timestamptz(6)
+  completedAt DateTime?      @db.Timestamptz(6)
+  voidedAt    DateTime?      @db.Timestamptz(6)
+  voidReason  String?
+  createdAt   DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(6)
+
+  org        Org             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact    Contact         @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  createdBy  User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  documents  Document[]
+  deliveries EmailDelivery[]
+
+  @@unique([orgId, id])
+  @@index([orgId, contactId])
+}
+
+model Document {
+  id              Int            @id @default(autoincrement())
+  orgId           Int
+  contactId       Int
+  envelopeId      Int?
+  kind            DocumentKind
+  status          DocumentStatus @default(DRAFT)
+  title           String
+  /// Protest year the appointment or contract is for.
+  taxYear         Int?
+  templateVersion Int?
+  unsignedKey     String
+  signedKey       String?
+  /// Signed on paper and uploaded by staff.
+  signedOffline   Boolean        @default(false)
+  signedAt        DateTime?      @db.Timestamptz(6)
+  createdById     Int?
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(6)
+
+  org        Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact    Contact            @relation(fields: [orgId, contactId], references: [orgId, id], onDelete: Cascade)
+  envelope   SignatureEnvelope? @relation(fields: [orgId, envelopeId], references: [orgId, id], onDelete: NoAction)
+  createdBy  User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  properties DocumentProperty[]
+
+  @@unique([orgId, id])
+  @@index([orgId, contactId])
+  @@index([orgId, status])
+}
+
+/// A 50-162 can list several accounts of the same owner (BUILD_PLAN 5.7).
+model DocumentProperty {
+  orgId      Int
+  documentId Int
+  propertyId Int
+
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [orgId, documentId], references: [orgId, id], onDelete: Cascade)
+  property Property @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
+
+  @@id([documentId, propertyId])
+  @@index([orgId, propertyId])
 }

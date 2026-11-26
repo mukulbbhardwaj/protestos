@@ -15,8 +15,18 @@ import {
   type TestContext,
 } from './helpers.js';
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
-type Target = 'member' | 'invitation' | 'contact' | 'property' | 'taxYear';
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+type Target =
+  | 'member'
+  | 'invitation'
+  | 'contact'
+  | 'property'
+  | 'taxYear'
+  | 'importJob'
+  | 'invoice'
+  | 'payment'
+  | 'document'
+  | 'envelope';
 
 interface IsolationCase {
   method: Method;
@@ -78,6 +88,96 @@ const CASES: IsolationCase[] = [
   },
   { method: 'POST', path: '/properties/bulk/rollover', body: { ids: [1], taxYear: 2030 } },
   { method: 'GET', path: '/search?q=bravo' },
+  { method: 'GET', path: '/imports' },
+  { method: 'GET', path: '/imports/template?kind=CONTACTS_PROPERTIES' },
+  { method: 'POST', path: '/imports?kind=CONTACTS_PROPERTIES&fileName=x.csv', body: { csv: 'a' } },
+  { method: 'GET', path: '/imports/:id', targetB: 'importJob' },
+  {
+    method: 'PATCH',
+    path: '/imports/:id/mapping',
+    body: { columnMapping: {} },
+    targetB: 'importJob',
+  },
+  { method: 'POST', path: '/imports/:id/preview', targetB: 'importJob' },
+  { method: 'POST', path: '/imports/:id/run', targetB: 'importJob' },
+  { method: 'GET', path: '/imports/:id/rows', targetB: 'importJob' },
+  { method: 'GET', path: '/imports/:id/errors.csv', targetB: 'importJob' },
+  { method: 'GET', path: '/invoices' },
+  { method: 'POST', path: '/invoices/generate', body: { taxYear: 2026 } },
+  { method: 'GET', path: '/invoices/:id', targetB: 'invoice' },
+  { method: 'GET', path: '/invoices/:id/pdf', targetB: 'invoice' },
+  { method: 'PATCH', path: '/invoices/:id', body: { notes: 'Taken' }, targetB: 'invoice' },
+  {
+    method: 'POST',
+    path: '/invoices/:id/lines',
+    body: { description: 'Taken', amount: '1' },
+    targetB: 'invoice',
+  },
+  { method: 'DELETE', path: '/invoices/:id/lines/:lineId', targetB: 'invoice' },
+  { method: 'DELETE', path: '/invoices/:id', targetB: 'invoice' },
+  { method: 'POST', path: '/invoices/:id/issue', body: {}, targetB: 'invoice' },
+  { method: 'POST', path: '/invoices/:id/void', body: { reason: 'Taken' }, targetB: 'invoice' },
+  {
+    method: 'POST',
+    path: '/invoices/:id/write-off',
+    body: { reason: 'Taken' },
+    targetB: 'invoice',
+  },
+  { method: 'GET', path: '/payments' },
+  {
+    method: 'POST',
+    path: '/payments',
+    body: { contactId: 1, receivedAt: '2026-09-01', amount: '1', method: 'CASH' },
+  },
+  { method: 'GET', path: '/payments/:id', targetB: 'payment' },
+  { method: 'DELETE', path: '/payments/:id', targetB: 'payment' },
+  { method: 'GET', path: '/contacts/:id/billing', targetB: 'contact' },
+  { method: 'POST', path: '/contacts/:id/apply-credit', targetB: 'contact' },
+  { method: 'GET', path: '/contacts/:id/statement.pdf', targetB: 'contact' },
+  { method: 'GET', path: '/email-templates' },
+  {
+    method: 'PUT',
+    path: '/email-templates',
+    body: { key: 'INVOICE', subject: 'Taken', body: 'Taken' },
+  },
+  { method: 'POST', path: '/email-templates/reset', body: { key: 'INVOICE' } },
+  {
+    method: 'POST',
+    path: '/email-templates/preview',
+    body: { key: 'INVOICE', subject: 'x', body: 'y' },
+  },
+  { method: 'POST', path: '/invoices/send', body: { invoiceIds: [1], requestKey: 'isolation-1' } },
+  { method: 'GET', path: '/documents' },
+  { method: 'GET', path: '/documents/:id/pdf', targetB: 'document' },
+  { method: 'POST', path: '/documents/:id/signed', targetB: 'document' },
+  {
+    method: 'GET',
+    path: '/contacts/:id/documents/preview?kind=ENGAGEMENT_CONTRACT&propertyIds=0&taxYear=2026&signerName=A',
+    targetB: 'contact',
+  },
+  {
+    method: 'POST',
+    path: '/contacts/:id/documents',
+    body: {
+      kinds: ['ENGAGEMENT_CONTRACT'],
+      propertyIds: [1],
+      taxYear: 2026,
+      signerName: 'Intruder',
+      signerEmail: 'intruder@example.com',
+    },
+    targetB: 'contact',
+  },
+  { method: 'GET', path: '/envelopes/:id', targetB: 'envelope' },
+  { method: 'POST', path: '/envelopes/:id/remind', targetB: 'envelope' },
+  { method: 'POST', path: '/envelopes/:id/void', body: { reason: 'Taken' }, targetB: 'envelope' },
+  { method: 'GET', path: '/document-template' },
+  { method: 'PUT', path: '/document-template', body: { body: 'Taken over agreement text here' } },
+  { method: 'POST', path: '/document-template/reset' },
+  {
+    method: 'POST',
+    path: '/document-template/preview',
+    body: { body: 'Preview agreement text for {{client.displayName}}' },
+  },
   { method: 'GET', path: '/calculator/coverage' },
   { method: 'GET', path: '/calculator/facets?countyId=1&taxYear=2026' },
   { method: 'GET', path: '/calculator/parcels?countyId=1&taxYear=2026' },
@@ -93,6 +193,8 @@ const CASES: IsolationCase[] = [
 let t: TestContext;
 let a: { cookie: string; slug: string; ids: Partial<Record<Target, number>> };
 let b: { slug: string; ids: Record<Target, number> };
+/** Org B's invoice line, for the one route with a second id. */
+let lineIdB = 0;
 
 /** Everything in org B, as raw rows, to prove nothing changed. */
 async function snapshotB() {
@@ -105,6 +207,17 @@ async function snapshotB() {
     contacts: await t.prisma.contact.findMany({ where, orderBy: { id: 'asc' } }),
     properties: await t.prisma.property.findMany({ where, orderBy: { id: 'asc' } }),
     taxYears: await t.prisma.taxYearRecord.findMany({ where, orderBy: { id: 'asc' } }),
+    imports: await t.prisma.importJob.findMany({ where, orderBy: { id: 'asc' } }),
+    importRows: await t.prisma.importRow.count({ where }),
+    invoices: await t.prisma.invoice.findMany({ where, orderBy: { id: 'asc' } }),
+    invoiceLines: await t.prisma.invoiceLine.findMany({ where, orderBy: { id: 'asc' } }),
+    payments: await t.prisma.payment.findMany({ where, orderBy: { id: 'asc' } }),
+    allocations: await t.prisma.paymentAllocation.findMany({ where, orderBy: { id: 'asc' } }),
+    emailTemplates: await t.prisma.emailTemplate.findMany({ where, orderBy: { id: 'asc' } }),
+    deliveries: await t.prisma.emailDelivery.findMany({ where, orderBy: { id: 'asc' } }),
+    documentTemplates: await t.prisma.documentTemplate.findMany({ where, orderBy: { id: 'asc' } }),
+    envelopes: await t.prisma.signatureEnvelope.findMany({ where, orderBy: { id: 'asc' } }),
+    documents: await t.prisma.document.findMany({ where, orderBy: { id: 'asc' } }),
     stageEvents: await t.prisma.protestStageEvent.count({ where }),
     audit: await t.prisma.auditLog.count({ where }),
   });
@@ -177,16 +290,144 @@ beforeAll(async () => {
       noticeAppraised: '100000',
     },
   });
+  const importB = await t.prisma.importJob.create({
+    data: {
+      orgId: ownerB.org.id,
+      kind: 'CONTACTS_PROPERTIES',
+      status: 'PREVIEWED',
+      fileKey: `org/${ownerB.org.id}/imports/bravo.csv`,
+      fileName: 'bravo.csv',
+      rowCount: 1,
+      headers: ['Client Name'],
+      columnMapping: { 'Client Name': 'displayName' },
+    },
+  });
+  await t.storage.put(importB.fileKey, 'Client Name\nBravo Secret\n', 'text/csv');
+  await t.prisma.importRow.create({
+    data: {
+      orgId: ownerB.org.id,
+      importJobId: importB.id,
+      phase: 'PREVIEW',
+      rowNumber: 1,
+      action: 'ERROR',
+      label: 'Bravo Secret',
+      messages: ['bravo'],
+    },
+  });
   b = {
     slug: ownerB.org.slug,
     ids: {
+      importJob: importB.id,
       member: memberB.id,
       invitation: invB.json().id,
       contact: contactB.id,
       property: propertyB.id,
       taxYear: yearB.id,
+      invoice: 0,
+      payment: 0,
+      document: 0,
+      envelope: 0,
     },
   };
+  // A draft invoice (so every invoice route would act on it if isolation failed) and a payment.
+  const invoiceB = await t.prisma.invoice.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      taxYear: 2026,
+      total: '100',
+      subtotal: '100',
+      balance: '100',
+      notes: 'Bravo secret notes',
+    },
+  });
+  const lineB = await t.prisma.invoiceLine.create({
+    data: {
+      orgId: ownerB.org.id,
+      invoiceId: invoiceB.id,
+      propertyId: propertyB.id,
+      taxYearRecordId: yearB.id,
+      kind: 'FLAT',
+      description: 'Bravo fee',
+      amount: '100',
+    },
+  });
+  const issuedB = await t.prisma.invoice.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      taxYear: 2025,
+      status: 'ISSUED',
+      number: 'B-0001',
+      total: '50',
+      subtotal: '50',
+      balance: '50',
+    },
+  });
+  const paymentB = await t.prisma.payment.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      receivedAt: new Date('2026-09-01'),
+      amount: '80',
+      method: 'CHECK',
+      reference: 'bravo-check',
+    },
+  });
+  await t.prisma.paymentAllocation.create({
+    data: { orgId: ownerB.org.id, paymentId: paymentB.id, invoiceId: issuedB.id, amount: '30' },
+  });
+  await t.prisma.emailTemplate.create({
+    data: { orgId: ownerB.org.id, key: 'INVOICE', subject: 'Bravo subject', body: 'Bravo body' },
+  });
+  await t.prisma.emailDelivery.create({
+    data: {
+      orgId: ownerB.org.id,
+      templateKey: 'INVOICE',
+      contactId: contactB.id,
+      invoiceId: issuedB.id,
+      toEmail: 'client@bravo.test',
+      status: 'SENT',
+      providerMessageId: 'bravo-message',
+      idempotencyKey: 'bravo:1',
+    },
+  });
+  await t.prisma.documentTemplate.create({
+    data: {
+      orgId: ownerB.org.id,
+      kind: 'ENGAGEMENT_CONTRACT',
+      name: 'Bravo',
+      body: 'Bravo agreement',
+    },
+  });
+  const envelopeB = await t.prisma.signatureEnvelope.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      provider: 'mock',
+      providerRef: 'bravo-envelope',
+      signToken: 'bravo-sign-token-000000000000',
+      signerName: 'Bravo Signer',
+      signerEmail: 'signer@bravo.test',
+    },
+  });
+  const documentB = await t.prisma.document.create({
+    data: {
+      orgId: ownerB.org.id,
+      contactId: contactB.id,
+      envelopeId: envelopeB.id,
+      kind: 'ENGAGEMENT_CONTRACT',
+      status: 'SENT',
+      title: 'Bravo agreement',
+      unsignedKey: `org/${ownerB.org.id}/documents/bravo.pdf`,
+    },
+  });
+  await t.storage.put(documentB.unsignedKey, '%PDF-bravo', 'application/pdf');
+  b.ids.document = documentB.id;
+  b.ids.envelope = envelopeB.id;
+  b.ids.invoice = invoiceB.id;
+  b.ids.payment = paymentB.id;
+  lineIdB = lineB.id;
   // Org A gets its own contact and property, for the "own responses" checks on :id routes.
   const contactA = await t.prisma.contact.create({
     data: {
@@ -204,13 +445,97 @@ beforeAll(async () => {
       countyId: county.id,
     },
   });
-  a.ids = { contact: contactA.id, property: propertyA.id };
+  const importA = await t.prisma.importJob.create({
+    data: {
+      orgId: ownerA.org.id,
+      kind: 'CONTACTS_PROPERTIES',
+      status: 'PREVIEWED',
+      fileKey: `org/${ownerA.org.id}/imports/alpha.csv`,
+      fileName: 'alpha.csv',
+      rowCount: 1,
+      headers: ['Client Name'],
+      columnMapping: { 'Client Name': 'displayName' },
+    },
+  });
+  await t.storage.put(importA.fileKey, 'Client Name\nAlpha Person\n', 'text/csv');
+  const invoiceA = await t.prisma.invoice.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      taxYear: 2026,
+      total: '10',
+      balance: '10',
+    },
+  });
+  await t.prisma.invoiceLine.create({
+    data: {
+      orgId: ownerA.org.id,
+      invoiceId: invoiceA.id,
+      propertyId: propertyA.id,
+      kind: 'FLAT',
+      description: 'Alpha fee',
+      amount: '10',
+    },
+  });
+  const paymentA = await t.prisma.payment.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      receivedAt: new Date('2026-09-01'),
+      amount: '5',
+      method: 'CASH',
+    },
+  });
+  const envelopeA = await t.prisma.signatureEnvelope.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      provider: 'mock',
+      providerRef: 'alpha-envelope',
+      signerName: 'Alpha Signer',
+      signerEmail: 'signer@alpha.test',
+    },
+  });
+  const documentA = await t.prisma.document.create({
+    data: {
+      orgId: ownerA.org.id,
+      contactId: contactA.id,
+      envelopeId: envelopeA.id,
+      kind: 'ENGAGEMENT_CONTRACT',
+      status: 'SENT',
+      title: 'Alpha agreement',
+      unsignedKey: `org/${ownerA.org.id}/documents/alpha.pdf`,
+    },
+  });
+  await t.storage.put(documentA.unsignedKey, '%PDF-alpha', 'application/pdf');
+  for (const c of CASES) {
+    if (c.path.startsWith('/contacts/:id/documents/preview'))
+      c.path = c.path.replace('propertyIds=0', `propertyIds=${propertyA.id}`);
+  }
+  a.ids = {
+    document: documentA.id,
+    envelope: envelopeA.id,
+    contact: contactA.id,
+    property: propertyA.id,
+    importJob: importA.id,
+    invoice: invoiceA.id,
+    payment: paymentA.id,
+  };
 
   // Make the generic bodies above point at org B's rows.
   for (const c of CASES) {
     if (c.path === '/properties' && c.method === 'POST')
       c.body = { contactId: contactB.id, accountNumber: 'X1', countyId: county.id };
     if (c.path.startsWith('/properties/bulk/')) c.body = { ...c.body, ids: [propertyB.id] };
+    if (c.path === '/payments' && c.method === 'POST')
+      c.body = {
+        ...c.body,
+        contactId: contactB.id,
+        allocations: [{ invoiceId: issuedB.id, amount: '1' }],
+      };
+    if (c.path === '/invoices/generate') c.body = { taxYear: 2026, contactIds: [contactB.id] };
+    if (c.path === '/invoices/send')
+      c.body = { invoiceIds: [issuedB.id], requestKey: 'isolation-1' };
   }
 
   // Give org A its own rows of every kind too, so list routes have something to return.
@@ -227,7 +552,7 @@ beforeAll(async () => {
 afterAll(() => t.app.close());
 
 function url(slug: string, c: IsolationCase, id?: number) {
-  return `/orgs/${slug}${c.path.replace(':id', String(id ?? 0))}`;
+  return `/orgs/${slug}${c.path.replace(':id', String(id ?? 0)).replace(':lineId', String(lineIdB))}`;
 }
 const routeKey = (c: IsolationCase) => `${c.method} ${c.path.split('?')[0]}`;
 
@@ -295,6 +620,14 @@ describe('tenant isolation', () => {
       payload: { contactId: b.ids.contact, accountNumber: 'SNEAKY', countyId: 1 },
     });
     expect(create.statusCode).toBe(404);
+    // Nor record a payment for another firm's client.
+    const pay = await t.app.inject({
+      method: 'POST',
+      url: `/orgs/${a.slug}/payments`,
+      headers: { cookie: a.cookie },
+      payload: { contactId: b.ids.contact, receivedAt: '2026-09-01', amount: '1', method: 'CASH' },
+    });
+    expect(pay.statusCode).toBe(404);
     for (const c of CASES.filter((x) => x.path.startsWith('/properties/bulk/'))) {
       const res = await t.app.inject({
         method: c.method,

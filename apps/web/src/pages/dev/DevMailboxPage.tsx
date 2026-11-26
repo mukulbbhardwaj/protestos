@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, Inbox, RefreshCw } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ExternalLink, Inbox, Paperclip, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
@@ -17,6 +18,7 @@ interface DevMail {
   text: string;
   tag?: string;
   sentAt: string;
+  attachments?: { filename: string; bytes: number }[];
 }
 
 /** Local development only: emails the API would have sent (verification, resets, invites). */
@@ -30,6 +32,25 @@ export function DevMailboxPage() {
   const messages = data?.messages ?? [];
   const selected = messages.find((m) => m.id === selectedId) ?? messages[0];
   const links = selected?.text.match(/https?:\/\/\S+/g) ?? [];
+  // Stands in for the provider's webhook, so delivery tracking can be tried locally.
+  const simulate = useMutation({
+    mutationFn: (type: 'delivered' | 'opened' | 'bounced') =>
+      api<{ applied: number }>('/dev/mail/events', {
+        method: 'POST',
+        body: {
+          providerMessageId: selected!.id,
+          type,
+          detail: type === 'bounced' ? 'Simulated bounce' : undefined,
+        },
+      }),
+    onSuccess: (r, type) =>
+      toast[r.applied ? 'success' : 'info'](
+        r.applied
+          ? `Marked ${type}.`
+          : 'This email isn’t tracked (sign-in and invite emails aren’t).',
+      ),
+    onError: (e) => toast.error(e.message),
+  });
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -83,7 +104,26 @@ export function DevMailboxPage() {
               <div className="border-b px-6 py-4">
                 <h1 className="font-semibold">{selected.subject}</h1>
                 <p className="text-sm text-muted-foreground">To {selected.to}</p>
+                {selected.attachments && selected.attachments.length > 0 && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Paperclip className="size-3" />
+                    {selected.attachments
+                      .map((a) => `${a.filename} (${Math.ceil(a.bytes / 1024)} KB)`)
+                      .join(', ')}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {(['delivered', 'opened', 'bounced'] as const).map((type) => (
+                    <Button
+                      key={type}
+                      size="sm"
+                      variant="outline"
+                      disabled={simulate.isPending}
+                      onClick={() => simulate.mutate(type)}
+                    >
+                      Mark {type}
+                    </Button>
+                  ))}
                   {links.map((url) => (
                     <Button key={url} asChild size="sm">
                       <a href={url}>

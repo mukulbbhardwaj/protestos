@@ -18,6 +18,11 @@ import { AcceptInvitePage } from '@/pages/invite/AcceptInvitePage';
 import { LandingPage } from '@/pages/landing/LandingPage';
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
 import { CalculatorPage } from '@/pages/org/calculator/CalculatorPage';
+import { ImportDetailPage } from '@/pages/org/imports/ImportDetailPage';
+import { InvoiceDetailPage } from '@/pages/org/invoices/InvoiceDetailPage';
+import { InvoicesPage } from '@/pages/org/invoices/InvoicesPage';
+import { PaymentsPage } from '@/pages/org/payments/PaymentsPage';
+import { ImportsPage } from '@/pages/org/imports/ImportsPage';
 import { PlatformDataPage } from '@/pages/org/platform/PlatformDataPage';
 import { ContactDetailPage } from '@/pages/org/contacts/ContactDetailPage';
 import { ContactsListPage } from '@/pages/org/contacts/ContactsListPage';
@@ -26,7 +31,11 @@ import { PropertiesListPage } from '@/pages/org/properties/PropertiesListPage';
 import { PropertyDetailPage } from '@/pages/org/properties/PropertyDetailPage';
 import { FinancePage } from '@/pages/org/FinancePage';
 import { ModulePage } from '@/pages/org/ModulePage';
+import { DocumentsPage } from '@/pages/org/documents/DocumentsPage';
 import { AuditLogPage } from '@/pages/org/settings/AuditLogPage';
+import { DocumentSettingsPage } from '@/pages/org/settings/DocumentSettingsPage';
+import { SignPage } from '@/pages/sign/SignPage';
+import { EmailTemplatesPage } from '@/pages/org/settings/EmailTemplatesPage';
 import { GeneralSettingsPage } from '@/pages/org/settings/GeneralSettingsPage';
 import { SettingsLayout } from '@/pages/org/settings/SettingsLayout';
 import { TeamSettingsPage } from '@/pages/org/settings/TeamSettingsPage';
@@ -52,6 +61,7 @@ export const router = createBrowserRouter([
   { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },
   { path: '/invite/:token', element: <AcceptInvitePage /> },
+  { path: '/sign/:token', element: <SignPage /> },
   ...(import.meta.env.DEV ? [{ path: '/dev/mailbox', element: <DevMailboxPage /> }] : []),
   // Logged-out visitors see the landing page; logged-in users go to their firm.
   { path: '/', element: <HomeRedirect landing={<LandingPage />} /> },
@@ -70,6 +80,26 @@ export const router = createBrowserRouter([
           { path: 'properties', element: <PropertiesListPage /> },
           { path: 'properties/:propertyId', element: <PropertyDetailPage /> },
           { path: 'calculator', element: <CalculatorPage /> },
+          { path: 'invoices', element: <InvoicesPage /> },
+          { path: 'invoices/:invoiceId', element: <InvoiceDetailPage /> },
+          { path: 'payments', element: <PaymentsPage /> },
+          { path: 'documents', element: <DocumentsPage /> },
+          {
+            path: 'imports',
+            element: (
+              <RequireRole minimum="STAFF">
+                <ImportsPage />
+              </RequireRole>
+            ),
+          },
+          {
+            path: 'imports/:importId',
+            element: (
+              <RequireRole minimum="STAFF">
+                <ImportDetailPage />
+              </RequireRole>
+            ),
+          },
           { path: 'platform-data', element: <PlatformDataPage /> },
           ...placeholderRoutes,
           {
@@ -86,6 +116,8 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <GeneralSettingsPage /> },
               { path: 'team', element: <TeamSettingsPage /> },
+              { path: 'emails', element: <EmailTemplatesPage /> },
+              { path: 'documents', element: <DocumentSettingsPage /> },
               { path: 'audit-log', element: <AuditLogPage /> },
             ],
           },

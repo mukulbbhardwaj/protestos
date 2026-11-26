@@ -1,4 +1,5 @@
-import { loadRootEnv } from '@app/shared/node';
+import { findWorkspaceRoot, loadRootEnv } from '@app/shared/node';
+import { join } from 'node:path';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
@@ -9,9 +10,15 @@ const EnvSchema = z.object({
   SENTRY_DSN: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
   APP_VERSION: z.string().default('dev'),
+  /** Uploaded files (shared with the API). */
+  STORAGE_DIR: z.string().optional(),
+  /** Development emails (shared with the API's dev mailbox). */
+  DEV_MAIL_DIR: z.string().optional(),
+  /** The web app's address, for links in emails. */
+  APP_URL: z.string().url().default('http://localhost:5173'),
 });
 
-export type Env = z.infer<typeof EnvSchema>;
+export type Env = z.infer<typeof EnvSchema> & { STORAGE_DIR: string; DEV_MAIL_DIR: string };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (source === process.env) loadRootEnv();
@@ -19,5 +26,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (!parsed.success) {
     throw new Error(`Invalid environment:\n${z.prettifyError(parsed.error)}`);
   }
-  return parsed.data;
+  return {
+    ...parsed.data,
+    STORAGE_DIR:
+      parsed.data.STORAGE_DIR ?? join(findWorkspaceRoot() ?? process.cwd(), '.dev-storage'),
+    DEV_MAIL_DIR:
+      parsed.data.DEV_MAIL_DIR ?? join(findWorkspaceRoot() ?? process.cwd(), '.dev-mail'),
+  };
 }

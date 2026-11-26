@@ -122,7 +122,6 @@ export const MODULES: ModuleDef[] = [
     icon: FileSignature,
     minRole: 'READ_ONLY',
     group: 'Work',
-    comingIn: 'M6',
     summary: 'Engagement contracts and Form 50-162, signed electronically.',
     features: [
       'Contract built from your firm’s template',
@@ -138,7 +137,6 @@ export const MODULES: ModuleDef[] = [
     icon: FileText,
     minRole: 'READ_ONLY',
     group: 'Money',
-    comingIn: 'M4',
     summary: 'Contingency invoices calculated from notice and final values.',
     features: [
       'Generate draft invoices per client for a tax year',
@@ -154,7 +152,6 @@ export const MODULES: ModuleDef[] = [
     icon: Banknote,
     minRole: 'READ_ONLY',
     group: 'Money',
-    comingIn: 'M4',
     summary: 'Record payments and apply them to open invoices.',
     features: [
       'Zelle, check, ACH, cash or card, with reference numbers',
@@ -186,7 +183,6 @@ export const MODULES: ModuleDef[] = [
     icon: Upload,
     minRole: 'STAFF',
     group: 'Firm',
-    comingIn: 'M3',
     summary: 'Bring in clients, properties and values from your spreadsheets.',
     features: [
       'Automatic column matching, with a saved mapping per firm',

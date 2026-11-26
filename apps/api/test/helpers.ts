@@ -1,5 +1,9 @@
+import { deliver } from '@app/mailer';
 import { createPrismaClient, type PrismaClient } from '@app/db/raw';
-import { MemoryMailProvider } from '@app/providers';
+import { forOrg } from '@app/db';
+import { applyImport } from '@app/imports';
+import { MemoryMailProvider, MemoryStorageProvider } from '@app/providers';
+import { InlineQueue, JOBS } from '../src/jobs.js';
 import type { OrgRole } from '@app/shared';
 import { hashPassword } from '@app/shared/node';
 import type { LightMyRequestResponse } from 'fastify';
@@ -20,16 +24,37 @@ export interface TestContext {
   app: App;
   prisma: PrismaClient;
   mail: MemoryMailProvider;
+  storage: MemoryStorageProvider;
+  jobs: InlineQueue;
   routes: { method: string; url: string }[];
 }
 
 export async function makeTestApp(overrides: Partial<AppDeps> = {}): Promise<TestContext> {
   const mail = new MemoryMailProvider();
+  const storage = new MemoryStorageProvider();
+  // Background jobs run inline, against the same code the worker uses.
+  const jobs = new InlineQueue({
+    [JOBS.importRun]: (d: { orgId: number; jobId: number; actorUserId: number | null }) =>
+      applyImport(
+        { db: forOrg(testPrisma(), d.orgId), orgId: d.orgId, actorUserId: d.actorUserId },
+        storage,
+        d.jobId,
+      ),
+    [JOBS.mailDeliver]: (d: { orgId: number; deliveryId: number }) =>
+      deliver(
+        forOrg(testPrisma(), d.orgId),
+        d.orgId,
+        { mail, storage, appUrl: APP_URL },
+        d.deliveryId,
+      ),
+  });
   const routes: { method: string; url: string }[] = [];
   const app = await buildApp(
     {
       prisma: testPrisma(),
       mail,
+      storage,
+      jobs,
       appUrl: APP_URL,
       version: 'test',
       authRateLimitPerMin: 10_000,
@@ -42,7 +67,7 @@ export async function makeTestApp(overrides: Partial<AppDeps> = {}): Promise<Tes
     },
   );
   await app.ready();
-  return { app, prisma: testPrisma(), mail, routes };
+  return { app, prisma: testPrisma(), mail, storage, jobs, routes };
 }
 
 /** Empties every application table. Only ever points at TEST_DATABASE_URL (see setup.ts). */

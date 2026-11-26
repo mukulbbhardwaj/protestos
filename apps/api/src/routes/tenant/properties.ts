@@ -5,6 +5,7 @@ import {
   BulkStageInput,
   ChangeStageInput,
   CreatePropertyInput,
+  normalizeAccountNumber,
   CreateTaxYearInput,
   paged,
   PropertyDetail,
@@ -50,6 +51,13 @@ async function assertConsultant(db: Db, userId: number | null | undefined) {
     select: { id: true },
   });
   if (!member) throw badRequest('That consultant is not an active member of your firm.');
+}
+
+/** Same per-county rules as CSV imports (dashes dropped where the CAD has none, zeros restored). */
+function countyAccount(raw: string, countyName?: string | null) {
+  const r = normalizeAccountNumber(raw, countyName);
+  if (!r.ok) throw badRequest(r.error);
+  return r.value;
 }
 
 function uniqueViolation(e: unknown) {
@@ -235,7 +243,7 @@ export const propertyRoutes: FastifyPluginAsyncZod = async (app) => {
       if (!contact) throw notFound('That client was not found.');
       const county = await db.county.findUnique({
         where: { id: input.countyId },
-        select: { id: true },
+        select: { id: true, name: true },
       });
       if (!county) throw badRequest('Choose a Texas county.');
       await assertConsultant(db, input.consultantUserId);
@@ -245,7 +253,7 @@ export const propertyRoutes: FastifyPluginAsyncZod = async (app) => {
           data: {
             orgId,
             ...input,
-            accountNumber: normalizeAccount(input.accountNumber),
+            accountNumber: countyAccount(input.accountNumber, county.name),
             situsAddress: situsAddress ?? undefined,
             situsLine: situs(situsAddress) ?? null,
           },
@@ -300,13 +308,20 @@ export const propertyRoutes: FastifyPluginAsyncZod = async (app) => {
       if (!before) throw notFound('That property was not found.');
       const { situsAddress, accountNumber, ...rest } = request.body;
       await assertConsultant(db, rest.consultantUserId);
+      const county =
+        accountNumber !== undefined
+          ? await db.county.findUnique({
+              where: { id: rest.countyId ?? before.countyId },
+              select: { name: true },
+            })
+          : null;
       try {
         await db.property.update({
           where: { id: before.id },
           data: {
             ...rest,
             ...(accountNumber !== undefined
-              ? { accountNumber: normalizeAccount(accountNumber) }
+              ? { accountNumber: countyAccount(accountNumber, county?.name) }
               : {}),
             ...(situsAddress !== undefined
               ? {

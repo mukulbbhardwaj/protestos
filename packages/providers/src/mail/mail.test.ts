@@ -2,7 +2,14 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DevFileMailProvider, MemoryMailProvider } from '../index.js';
+import {
+  DevFileMailProvider,
+  MemoryMailProvider,
+  MockSignatureProvider,
+  parseMailEvents,
+  signMailWebhook,
+  verifyMailWebhook,
+} from '../index.js';
 
 const message = { to: 'a@example.com', subject: 'Hi', html: '<p>Hi</p>', text: 'Hi', orgId: null };
 
@@ -24,5 +31,49 @@ describe('DevFileMailProvider', () => {
     await mail.send({ ...message, subject: 'second' });
     const listed = await mail.list();
     expect(listed.map((m) => m.subject)).toEqual(['second', 'first']);
+  });
+});
+
+describe('mock mail webhook', () => {
+  it('verifies signatures and keeps only well-formed events', () => {
+    const body = JSON.stringify({ events: [] });
+    const sig = signMailWebhook('secret', body);
+    expect(verifyMailWebhook('secret', body, sig)).toBe(true);
+    expect(verifyMailWebhook('other', body, sig)).toBe(false);
+    expect(verifyMailWebhook('secret', body, undefined)).toBe(false);
+    expect(verifyMailWebhook('secret', body, 'short')).toBe(false);
+    expect(
+      parseMailEvents({
+        events: [
+          {
+            id: 'e1',
+            type: 'bounced',
+            providerMessageId: 'm1',
+            at: '2026-01-01T00:00:00Z',
+            detail: 'mailbox full',
+          },
+          { id: 'e2', type: 'opened', providerMessageId: 'm1' },
+          { id: 'e3', type: 'exploded', providerMessageId: 'm1' },
+          { type: 'opened' },
+        ],
+      }).map((e) => `${e.id} ${e.type} ${e.detail ?? ''}`.trim()),
+    ).toEqual(['e1 bounced mailbox full', 'e2 opened']);
+    expect(parseMailEvents(null)).toEqual([]);
+  });
+});
+
+describe('MockSignatureProvider', () => {
+  it('records and voids envelopes', async () => {
+    const sig = new MockSignatureProvider();
+    const { providerRef } = await sig.createEnvelope({
+      reference: 'ENV-1',
+      signer: { name: 'Jane', email: 'jane@example.com' },
+      documents: [{ title: 'A', pdf: new Uint8Array() }],
+    });
+    expect(sig.envelopes.get(providerRef)).toEqual({ reference: 'ENV-1', documents: 1 });
+    await sig.voidEnvelope(providerRef, 'Wrong person');
+    await sig.voidEnvelope('unknown', 'x');
+    expect(sig.envelopes.get(providerRef)?.voided).toBe('Wrong person');
+    await expect(sig.getSignedDocuments()).rejects.toThrow(/sign page/);
   });
 });

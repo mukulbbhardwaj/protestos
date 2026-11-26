@@ -6,6 +6,7 @@ import {
   Circle,
   Clock,
   Home,
+  MailWarning,
   UserPlus,
   Users,
   type LucideIcon,
@@ -145,6 +146,26 @@ export function DashboardPage() {
       {error && (
         <Alert variant="destructive" className="mb-6">
           {error.message}
+        </Alert>
+      )}
+
+      {data && data.stats.bouncedEmails > 0 && (
+        <Alert variant="destructive" className="mb-6">
+          <MailWarning />
+          <p>
+            <strong>
+              {data.stats.bouncedEmails} {data.stats.bouncedEmails === 1 ? 'email' : 'emails'}{' '}
+              bounced
+            </strong>{' '}
+            in the last 30 days.{' '}
+            <Link
+              to={`/${org.orgSlug}/invoices?delivery=BOUNCED`}
+              className="font-medium underline"
+            >
+              See the invoices
+            </Link>{' '}
+            and check the clients&apos; email addresses.
+          </p>
         </Alert>
       )}
 

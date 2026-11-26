@@ -85,6 +85,8 @@ function toForm(s: OrgSettings): FormIn {
     taxYearDefault: s.taxYearDefault,
     savingsBasis: s.savingsBasis,
     flatFeeCurrentYearOnly: s.flatFeeCurrentYearOnly,
+    invoiceGrouping: s.invoiceGrouping,
+    paymentInstructions: s.paymentInstructions ?? '',
   };
 }
 
@@ -247,7 +249,20 @@ export function GeneralSettingsPage() {
         </Field>
       </Section>
 
-      <Section title="Invoicing" description="How invoice numbers and due dates are set.">
+      <Section
+        title="Invoicing"
+        description="How invoices are grouped and numbered, when they're due, and how clients pay."
+      >
+        <Field
+          label="One invoice per"
+          htmlFor="grouping"
+          hint="Client per tax year puts each property on its own line."
+        >
+          <NativeSelect id="grouping" {...form.register('invoiceGrouping')}>
+            <option value="CLIENT_YEAR">Client per tax year</option>
+            <option value="PROPERTY_YEAR">Property per tax year</option>
+          </NativeSelect>
+        </Field>
         <Field
           label="Number prefix"
           htmlFor="prefix"
@@ -268,6 +283,18 @@ export function GeneralSettingsPage() {
               {...form.register('invoiceDueDays')}
             />
           </Suffix>
+        </Field>
+        <Field
+          label="Payment instructions"
+          htmlFor="pay-instructions"
+          error={e.paymentInstructions?.message}
+          hint="Printed on invoices and statements: Zelle, check address, ACH details."
+        >
+          <textarea
+            id="pay-instructions"
+            className="min-h-20 rounded-md border bg-transparent px-3 py-2 text-sm"
+            {...form.register('paymentInstructions')}
+          />
         </Field>
       </Section>
 

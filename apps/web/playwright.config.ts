@@ -7,7 +7,15 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: 'http://localhost:5173', trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      // Signed in as the demo owner (auth.setup.ts); m1.spec.ts clears it to test logging in.
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/owner.json' },
+      dependencies: ['setup'],
+    },
+  ],
   webServer: [
     {
       command: 'pnpm --filter @app/api dev',

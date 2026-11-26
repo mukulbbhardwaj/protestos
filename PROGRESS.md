@@ -9,14 +9,174 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M1 Auth, orgs and tenancy                | ✅ Done                   |
 | M2 Contacts, properties, tax years       | ✅ Done                   |
 | M2.5 Tax savings calculator              | ✅ Done (awaiting review) |
-| M3 CSV import                            | Not started               |
-| M4 Invoicing and payments                | Not started               |
-| M5 Email and delivery tracking           | Not started               |
-| M6 Documents and e-signature             | Not started               |
+| M3 CSV import                            | ✅ Done (awaiting review) |
+| M4 Invoicing and payments                | ✅ Done (awaiting review) |
+| M5 Email and delivery tracking           | ✅ Done (awaiting review) |
+| M6 Documents and e-signature             | ✅ Done (awaiting review) |
 | M7 Hearings and dashboards               | Not started               |
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M6: Documents and e-signature (2026-11-26)
+
+ADR 010. E-signature provider: mock for now (Mukul, 2026-11-26).
+
+### Done
+
+- **Send documents** from a client or prospect (Documents tab): engagement agreement and/or
+  Form 50-162, choose properties, tax year and signer; preview each PDF; one email with one
+  link to sign everything. Prospects move to "Docs sent".
+- **Form 50-162** filled from the firm (agent name, title, TDLR #, address, phone) and the
+  owner, one per appraisal district with all of that owner's accounts there.
+- **Signing page** (`/sign/:token`, no login): read each PDF, type name, agree, sign; or
+  decline with a reason. Signed copies get a signature line on every page and a certificate.
+- **After signing:** documents and request marked signed, signed PDFs on file, 50-162
+  property-years → AOA signed (stage history), prospect → Signed. Dashboard checklist ticks
+  "Connect e-signature".
+- **Manage:** reminders, cancel (void) with a reason, copy signing link, "Upload signed" for
+  paper signatures, and a Documents page across the firm (waiting, signed, declined,
+  cancelled).
+- **Settings → Documents:** agreement wording editor with placeholders and a PDF preview
+  (versioned), Form 50-162 agent details, "allow sending signed documents again".
+
+### Verified
+
+- **M6 "done when"** (`apps/api/test/documents.test.ts`, mock provider in place of the DocuSign
+  sandbox): a prospect gets an agreement and a 50-162 per county, opens the link, signs, the
+  signed PDFs are stored and served, property-years are AOA signed and the prospect is SIGNED.
+  Playwright (`e2e/documents.spec.ts`) does the same through the UI with the agreement.
+- Also: 50-162 fields filled from firm and client, missing form explained, resend guard,
+  reminders, void, decline, paper upload, own-properties check, roles, template versions, and
+  isolation for the 12 new routes.
+
+### Open
+
+- **Add the official Form 50-162 PDF** (`packages/pdf/assets/README.md`) and check the field
+  names in `FIELD_MAP` against it. Needs your OK to download it, or drop it in yourself.
+
+---
+
+## M5: Email and delivery tracking (2026-11-26)
+
+ADR 009. Provider: mock for now (Mukul, 2026-11-26); Postmark or Brevo plugs into `MailProvider`.
+
+### Done
+
+- **Templates** (Settings → Emails, admins): invoice, invoice with no reduction, payment
+  receipt, document reminder, prospect outreach. Plain text with placeholders, click to insert,
+  live preview with sample values, typos caught on save, "Use built-in" to reset.
+- **Send invoices** one at a time (invoice page) or in bulk (select rows on Invoices). The
+  dialog previews each recipient (billing email, else email) and lists what won't be sent
+  (drafts, no email, imported). Zero-savings invoices get the no-reduction email. PDF attached.
+- **Queue and idempotency:** one `EmailDelivery` per email, sent by the worker with retries;
+  the same send request never sends twice.
+- **Tracking:** signed webhook updates each email to delivered / opened / bounced; the invoice
+  shows its emails and their events, the list has an Email column and filter (not emailed,
+  emailed, bounced), and the dashboard shows a bounce alert.
+- **Payment receipts:** "Email the client a receipt" when recording a payment.
+- Dev mailbox: shows attachments and can mark an email delivered, opened or bounced.
+
+### Verified
+
+- **M5 "done when"** (`apps/api/test/email.test.ts`): 50 invoices bulk-sent, 50 emails each
+  tracked through delivered/opened/bounced via signed webhooks, the bounce shows on the
+  invoice list filter, invoice detail and dashboard; the same request sent again sends
+  nothing new; replayed events change nothing; unsigned webhooks get 401.
+- Also: skipped reasons, zero-savings template, provider failure → FAILED with the error,
+  receipt wording, template validation/preview/reset, roles. Isolation for the 5 new routes.
+- Clicked through with the worker running: email sent to the dev mailbox with the PDF,
+  bounce marked, dashboard alert shown.
+- 363 unit/integration tests and 10 Playwright tests; lint, typecheck, build.
+
+---
+
+## M4: Invoicing and payments (2026-11-26)
+
+ADR 008.
+
+### Done
+
+- **Generate:** pick a tax year (and county or consultant) → preview of the drafts with totals
+  and the property-years skipped, with the reason (missing tax rate, no fee due) → drafts.
+  Grouping is a firm setting: per client per year (default) or per property. A client's
+  Billing tab can draft just their invoice ("Invoice 2026").
+- **Review:** adjustment lines (negative for discounts), remove lines, layout (standard,
+  arbitration, homestead, zero savings; chosen automatically), notes, live PDF preview.
+- **Issue:** fees recalculated from current values and frozen with a snapshot, next number,
+  issue and due dates (firm's payment terms), PDF stored, property-years → INVOICED.
+- **Payments:** record against a client (Zelle, check, ACH, cash, card, other, reference),
+  allocated oldest first or by hand; overpayment kept as credit and applied later. Partial
+  and full payment derive invoice status; fully paid → property-years PAID. Delete a payment
+  to reopen its invoices.
+- **Void / write off** with a reason (audited); voiding returns payments to credit and makes
+  the property-years billable again.
+- **PDFs** (`packages/pdf`): invoice with one block per property and the fee working (notice →
+  final, reduction × tax rate = savings × %), totals and payment instructions; client
+  statement with open invoices, recent payments, credit and balance due.
+- **Client Billing tab:** balance due, past due, credit, every invoice, statement PDF.
+- **Historical invoices import** (third import type): balances and payments from the old
+  system, idempotent on invoice number.
+- Settings: invoice grouping, payment instructions.
+
+### Verified
+
+- **M4 "done when":** `apps/api/test/billing.test.ts` and `apps/web/e2e/invoicing.spec.ts`:
+  generate → issue → part pay → pay in full, balances correct at each step, and changing the
+  values, fee % and firm default after issue leaves the invoice, its lines and its PDF
+  byte-for-byte unchanged.
+- Billing rules in `packages/shared/src/billing` at 100% coverage (allocation, derived status,
+  past due, aging, layout choice).
+- 346 unit/integration tests (api 213 incl. isolation for all 17 billing routes; shared 102;
+  db 11; web 8; providers 6; pdf 4; worker 2) and 9 Playwright tests; lint, typecheck, build.
+
+---
+
+## M3: CSV import (2026-11-26)
+
+ADR 007.
+
+### Done
+
+- **Pipeline:** upload (raw CSV, 20 MB / 50,000 rows) → automatic column mapping (header
+  synonyms from real firm exports; the firm's corrected mapping is remembered per import type)
+  → dry run → confirm → background job (pg-boss, worker `imports.run`) → summary.
+- **Import types:** Clients & properties, and Tax-year values. Historical invoices wait for
+  invoicing (M4).
+- **Matching and idempotency:** clients by client number, then email, then the property's
+  owner; properties by county + account (punctuation-insensitive); tax years by property +
+  year. Blank cells never erase values; changed fields are listed per row; stage changes are
+  written to the stage history; new clients get the firm's next client number.
+- **Normalizers** (100% coverage): county account formats, E.164 phones, dates (MM/DD/YYYY,
+  M/D/YY, ISO, "Apr 15, 2026", Excel serials), money, percentages, yes/no, "City, ST ZIP".
+  Hand-entered properties now use the same account rules.
+- **Errors:** per-row messages in plain sentences; bad rows are skipped, good rows saved;
+  "Error rows" downloads the original rows plus an "Import error" column, ready to fix and
+  re-upload.
+- **Storage** (`StorageProvider`: dev folder, memory for tests) and **job queue** interfaces.
+- **Web:** Imports page (choose type, sample files, upload, history) and an import page
+  (map columns with sample values → dry run tiles and rows by result → import, with live
+  progress).
+- Audit: `import.uploaded`, `import.started`, `import.completed` (with counts).
+
+### Verified
+
+- **M3 "done when":** a 5,000-row file imports (5,000 created), importing it again makes zero
+  changes (5,000 unchanged), and error rows download as CSV — all in `apps/api/test/imports.test.ts`.
+- 285 unit/integration tests (api 168 incl. isolation for all 9 import routes; shared 91;
+  db 11; web 7; providers 6; worker 2) and 8 Playwright tests; lint, typecheck, format, build.
+- Clicked through in the browser with the worker running: upload → auto-map → dry run →
+  import → finished, with the bad row skipped.
+
+### Decisions for later milestones (Mukul, 2026-11-26)
+
+- **M4:** invoice grouping is a firm setting; default one invoice per client per tax year.
+- **M5:** build behind `MailProvider` with the dev/log providers; choose Postmark or Brevo later.
+- **M6:** build e-signature behind `SignatureProvider` with a mock; choose the provider later.
+- **M9:** plans, trial and limits configurable (per-property and per-seat); placeholder prices
+  in Stripe test mode.
 
 ---
 

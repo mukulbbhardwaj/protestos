@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatMoney } from './format';
+import { formatDate, formatDay, formatMoney } from './format';
 import { initials } from './utils';
 
 describe('formatters', () => {
@@ -17,5 +17,12 @@ describe('formatters', () => {
   it('builds initials', () => {
     expect(initials('Olivia Owner')).toBe('OO');
     expect(initials('Cher')).toBe('C');
+  });
+});
+
+describe('formatDay', () => {
+  it('keeps the calendar day', () => {
+    expect(formatDay('2026-09-01')).toBe('09/01/2026');
+    expect(formatDay(null)).toBe('—');
   });
 });
