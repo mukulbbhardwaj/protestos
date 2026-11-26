@@ -13,10 +13,47 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M4 Invoicing and payments                | ✅ Done (awaiting review) |
 | M5 Email and delivery tracking           | ✅ Done (awaiting review) |
 | M6 Documents and e-signature             | ✅ Done (awaiting review) |
-| M7 Hearings and dashboards               | Not started               |
+| M7 Hearings and dashboards               | ✅ Done (awaiting review) |
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M7: Hearings and dashboards (2026-11-26)
+
+ADR 011.
+
+### Done
+
+- **Hearings:** week, month and list views (Central time), filters by status, county and
+  consultant; schedule from the Hearings page or a property; edit status (attended,
+  rescheduled, cancelled, no show), type, location, panel, consultant, notes. Scheduling moves
+  the property-year to "Hearing scheduled".
+- **CAD schedule import** (fourth import type): county, account, date, time, type, location,
+  panel, consultant; re-importing an updated schedule reschedules.
+- **Calendar feed:** "Subscribe" gives each member a private iCal link of their hearings for
+  Google or Outlook, with "Make a new link".
+- **Ops dashboard:** hearings this week (and today), documents waiting for signature; bounce
+  alert and stage funnel from earlier milestones.
+- **Finance dashboard** (owners and admins): billed and collected this month, last month,
+  YTD and last year; collection rate; outstanding by days late; value reduced and tax saved
+  for the tax year; billed vs collected by month (chart or table); billed by county; protest
+  outcomes by year; largest balances; recent payments. Filters: date range, tax year,
+  county, consultant, property type, payment method. Every table exports to CSV.
+- **Demo data:** `pnpm db:backfill sample` now adds invoices, payments and hearings for the
+  demo firms (≈2,300 invoices, 1,900 payments, 930 hearings).
+
+### Verified
+
+- **M7 "done when"** (`apps/api/test/finance.test.ts`): a fixture of 7 invoices and 4 payments
+  with every dashboard number calculated by hand in the test (periods, collection rate,
+  aging, by client, by county, monthly, savings, outcomes, filters).
+- Hearings: stage move, filters, edit/delete with audit, CAD import (DST times, idempotent,
+  reschedule), calendar feed and rotation, dashboard counts, roles; isolation for the new
+  routes. Playwright: schedule from a property → calendar list; finance dashboard.
+- 425 unit/integration tests and 14 Playwright tests; lint, typecheck, build. Looked at the
+  finance dashboard and calendar in the browser with the demo data.
 
 ---
 

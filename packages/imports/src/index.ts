@@ -9,6 +9,7 @@ import {
   type Mode,
 } from './common.js';
 import { importContacts } from './contacts.js';
+import { importHearings } from './hearings.js';
 import { importInvoices } from './invoices.js';
 import { importTaxYears } from './tax-years.js';
 
@@ -50,6 +51,8 @@ async function run(ctx: ImportContext, input: ImportInput, mode: Mode): Promise<
       return importTaxYears(ctx, input, mode);
     case 'HISTORICAL_INVOICES':
       return importInvoices(ctx, input, mode);
+    case 'HEARINGS':
+      return importHearings(ctx, input, mode);
   }
 }
 
@@ -120,3 +123,5 @@ export async function applyImport(ctx: ImportContext, storage: StorageProvider, 
     throw e;
   }
 }
+
+export { moveToHearingScheduled } from './hearings.js';

@@ -25,6 +25,7 @@ import { countyRoutes } from './routes/counties.js';
 import { devRoutes } from './routes/dev.js';
 import { healthRoutes } from './routes/health.js';
 import { onboardingRoutes } from './routes/onboarding.js';
+import { calendarRoutes } from './routes/calendar.js';
 import { signingRoutes } from './routes/signing.js';
 import { tenantRoutes } from './routes/tenant/index.js';
 import { loadForm50162, type DocumentDeps } from './services/documents.js';
@@ -108,6 +109,7 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
   };
   await app.register(tenantRoutes, { services, documents, prefix: '/orgs/:orgSlug' });
   await app.register(signingRoutes, { services, deps: documents });
+  await app.register(calendarRoutes, { services });
   await app.register(webhookRoutes, {
     services,
     mailSecret: deps.mailWebhookSecret ?? DEV_MAIL_WEBHOOK_SECRET,

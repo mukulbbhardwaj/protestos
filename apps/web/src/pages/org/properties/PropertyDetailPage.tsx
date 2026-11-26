@@ -18,6 +18,7 @@ import { PROPERTY_TYPE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { EstimateCard } from '../calculator/EstimateCard';
 import { computeFee } from './FeePreview';
+import { PropertyHearingsCard } from './PropertyHearingsCard';
 import { TaxYearEditor } from './TaxYearEditor';
 
 const whole = (v: string | null | undefined) => (v ? formatMoney(v).replace(/\.00$/, '') : '—');
@@ -99,6 +100,12 @@ export function PropertyDetailPage() {
       </div>
 
       <EstimateCard countyId={p.county.id} accountNumber={p.accountNumber} />
+
+      <PropertyHearingsCard
+        propertyId={p.id}
+        label={`${p.county.name} ${p.accountNumber} · ${p.contact.displayName}`}
+        archived={Boolean(p.archivedAt)}
+      />
 
       <Card className="mb-6 overflow-hidden">
         <CardHeader className="flex-row items-center justify-between gap-4">

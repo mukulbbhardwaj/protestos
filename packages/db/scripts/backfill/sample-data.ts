@@ -7,6 +7,7 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
 import type { PrismaClient } from '../../src/raw.js';
 import { DEMO_ORG, GULF_ORG } from './demo.js';
 import { log } from './common.js';
+import { resetSampleBilling } from './sample-billing.js';
 
 // ---------------------------------------------------------------------------
 // Deterministic randomness
@@ -468,6 +469,7 @@ export async function resetSampleData(prisma: PrismaClient) {
     const org = await prisma.org.findUnique({ where: { slug: plan.slug } });
     if (!org) continue;
     const where = { orgId: org.id };
+    await resetSampleBilling(prisma, org.id);
     await prisma.taxYearRecord.deleteMany({ where }); // cascades to stage events
     await prisma.property.deleteMany({ where });
     const removed = await prisma.contact.deleteMany({ where });

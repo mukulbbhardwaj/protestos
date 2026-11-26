@@ -204,7 +204,9 @@ export function DashboardPage() {
         <StatTile
           label="Hearings this week"
           icon={CalendarClock}
-          note="Available with hearings (M7)"
+          value={data?.stats.hearingsThisWeek}
+          note={data ? `${data.stats.hearingsToday} today` : 'Next 7 days'}
+          to={`/${org.orgSlug}/hearings`}
         />
       </div>
 

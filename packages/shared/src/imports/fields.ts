@@ -8,6 +8,7 @@ export const IMPORT_KINDS = [
   'CONTACTS_PROPERTIES',
   'TAX_YEAR_VALUES',
   'HISTORICAL_INVOICES',
+  'HEARINGS',
 ] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 /** Kinds that can be imported now. */
@@ -45,6 +46,7 @@ const CONTACT = 'Client';
 const PROPERTY = 'Property';
 const YEAR = 'Tax year';
 const INVOICE = 'Invoice';
+const HEARING = 'Hearing';
 
 export const IMPORT_FIELDS: Record<ImportKind, ImportField[]> = {
   CONTACTS_PROPERTIES: [
@@ -567,6 +569,77 @@ export const IMPORT_FIELDS: Record<ImportKind, ImportField[]> = {
     },
     { key: 'notes', label: 'Notes', type: 'text', group: INVOICE, synonyms: ['notes', 'memo'] },
   ],
+  // Hearing schedules from appraisal districts (M7). Times are the CAD's local (Central) time.
+  HEARINGS: [
+    {
+      key: 'county',
+      label: 'County',
+      type: 'county',
+      group: PROPERTY,
+      required: true,
+      synonyms: ['county', 'cad', 'appraisal district'],
+    },
+    {
+      key: 'accountNumber',
+      label: 'CAD account number',
+      type: 'account',
+      group: PROPERTY,
+      required: true,
+      synonyms: ['account', 'account number', 'acct', 'acct #', 'property id', 'prop id', 'geo id'],
+    },
+    {
+      key: 'hearingDate',
+      label: 'Hearing date',
+      type: 'date',
+      group: HEARING,
+      required: true,
+      synonyms: ['hearing date', 'date', 'scheduled date', 'appointment date'],
+    },
+    {
+      key: 'hearingTime',
+      label: 'Hearing time',
+      type: 'text',
+      group: HEARING,
+      synonyms: ['hearing time', 'time', 'scheduled time', 'start time'],
+      hint: 'Like 9:30 AM or 14:30 (Central time). Blank means 9:00 AM.',
+    },
+    {
+      key: 'taxYear',
+      label: 'Tax year',
+      type: 'year',
+      group: HEARING,
+      synonyms: ['tax year', 'year'],
+      hint: 'Blank: the hearing date’s year.',
+    },
+    {
+      key: 'hearingType',
+      label: 'Type',
+      type: 'choice',
+      group: HEARING,
+      synonyms: ['type', 'hearing type'],
+    },
+    {
+      key: 'location',
+      label: 'Location',
+      type: 'text',
+      group: HEARING,
+      synonyms: ['location', 'room', 'place', 'address'],
+    },
+    {
+      key: 'panel',
+      label: 'Panel',
+      type: 'text',
+      group: HEARING,
+      synonyms: ['panel', 'panel number', 'board'],
+    },
+    {
+      key: 'consultantEmail',
+      label: 'Consultant (email)',
+      type: 'email',
+      group: HEARING,
+      synonyms: ['consultant', 'consultant email', 'agent email', 'assigned to'],
+    },
+  ],
 };
 
 export function importFields(kind: ImportKind): ImportField[] {
@@ -615,6 +688,11 @@ export const SAMPLE_CSVS: Record<ImportKind, string> = {
     'County,Account Number,Tax Year,Notice Market,Notice Appraised,Final Market,Final Appraised,Tax Rate,Homestead,Notice Received,Protest Filed,Stage',
     'Harris,0660640130020,2026,"$524,819","$376,607","$489,000","$376,607",2.15%,Yes,04/17/2026,05/01/2026,Settled',
     'Fort Bend,R267426,2026,"$273,584","$273,584","$255,000","$255,000",2.36,Yes,04/10/2026,05/02/2026,Protest filed',
+  ].join('\n'),
+  HEARINGS: [
+    'County,Account Number,Hearing Date,Hearing Time,Type,Location,Panel',
+    'Harris,0660640130020,06/15/2026,9:30 AM,ARB,"HCAD, 13013 Northwest Fwy",Panel 12',
+    'Fort Bend,R267426,06/16/2026,1:00 PM,Informal,Phone,',
   ].join('\n'),
   HISTORICAL_INVOICES: [
     'Invoice #,Client Number,Client Name,Tax Year,Invoice Date,Due Date,Total,Amount Paid,Paid Date',

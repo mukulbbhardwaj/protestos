@@ -26,7 +26,8 @@ type Target =
   | 'invoice'
   | 'payment'
   | 'document'
-  | 'envelope';
+  | 'envelope'
+  | 'hearing';
 
 interface IsolationCase {
   method: Method;
@@ -48,7 +49,18 @@ const CASES: IsolationCase[] = [
   { method: 'POST', path: '/invitations/:id/resend', targetB: 'invitation' },
   { method: 'DELETE', path: '/invitations/:id', targetB: 'invitation' },
   { method: 'GET', path: '/audit-log' },
-  { method: 'GET', path: '/finance/summary' },
+  { method: 'GET', path: '/finance/dashboard' },
+  { method: 'GET', path: '/hearings' },
+  {
+    method: 'POST',
+    path: '/hearings',
+    body: { propertyId: 1, taxYear: 2026, scheduledAt: '2026-06-15T14:30:00Z' },
+  },
+  { method: 'GET', path: '/hearings/:id', targetB: 'hearing' },
+  { method: 'PATCH', path: '/hearings/:id', body: { notes: 'Taken' }, targetB: 'hearing' },
+  { method: 'DELETE', path: '/hearings/:id', targetB: 'hearing' },
+  { method: 'GET', path: '/calendar-feed' },
+  { method: 'POST', path: '/calendar-feed/rotate' },
   { method: 'GET', path: '/contacts' },
   { method: 'GET', path: '/contacts/prospect-counts' },
   { method: 'POST', path: '/contacts', body: { kind: 'CLIENT', displayName: 'Intruder' } },
@@ -218,6 +230,7 @@ async function snapshotB() {
     documentTemplates: await t.prisma.documentTemplate.findMany({ where, orderBy: { id: 'asc' } }),
     envelopes: await t.prisma.signatureEnvelope.findMany({ where, orderBy: { id: 'asc' } }),
     documents: await t.prisma.document.findMany({ where, orderBy: { id: 'asc' } }),
+    hearings: await t.prisma.hearing.findMany({ where, orderBy: { id: 'asc' } }),
     stageEvents: await t.prisma.protestStageEvent.count({ where }),
     audit: await t.prisma.auditLog.count({ where }),
   });
@@ -327,6 +340,7 @@ beforeAll(async () => {
       payment: 0,
       document: 0,
       envelope: 0,
+      hearing: 0,
     },
   };
   // A draft invoice (so every invoice route would act on it if isolation failed) and a payment.
@@ -423,6 +437,17 @@ beforeAll(async () => {
     },
   });
   await t.storage.put(documentB.unsignedKey, '%PDF-bravo', 'application/pdf');
+  b.ids.hearing = (
+    await t.prisma.hearing.create({
+      data: {
+        orgId: ownerB.org.id,
+        propertyId: propertyB.id,
+        taxYear: 2026,
+        scheduledAt: new Date('2026-06-15T14:30:00Z'),
+        location: 'Bravo room',
+      },
+    })
+  ).id;
   b.ids.document = documentB.id;
   b.ids.envelope = envelopeB.id;
   b.ids.invoice = invoiceB.id;
@@ -512,7 +537,16 @@ beforeAll(async () => {
     if (c.path.startsWith('/contacts/:id/documents/preview'))
       c.path = c.path.replace('propertyIds=0', `propertyIds=${propertyA.id}`);
   }
+  const hearingA = await t.prisma.hearing.create({
+    data: {
+      orgId: ownerA.org.id,
+      propertyId: propertyA.id,
+      taxYear: 2026,
+      scheduledAt: new Date('2026-06-15T14:30:00Z'),
+    },
+  });
   a.ids = {
+    hearing: hearingA.id,
     document: documentA.id,
     envelope: envelopeA.id,
     contact: contactA.id,
@@ -534,6 +568,8 @@ beforeAll(async () => {
         allocations: [{ invoiceId: issuedB.id, amount: '1' }],
       };
     if (c.path === '/invoices/generate') c.body = { taxYear: 2026, contactIds: [contactB.id] };
+    if (c.path === '/hearings' && c.method === 'POST')
+      c.body = { ...c.body, propertyId: propertyB.id };
     if (c.path === '/invoices/send')
       c.body = { invoiceIds: [issuedB.id], requestKey: 'isolation-1' };
   }

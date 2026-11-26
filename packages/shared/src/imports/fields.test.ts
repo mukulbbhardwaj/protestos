@@ -46,7 +46,12 @@ describe('autoMapColumns', () => {
   });
 
   it('maps every column of the sample files', () => {
-    for (const kind of ['CONTACTS_PROPERTIES', 'TAX_YEAR_VALUES', 'HISTORICAL_INVOICES'] as const) {
+    for (const kind of [
+      'CONTACTS_PROPERTIES',
+      'TAX_YEAR_VALUES',
+      'HISTORICAL_INVOICES',
+      'HEARINGS',
+    ] as const) {
       const [headers] = parseCsv(SAMPLE_CSVS[kind]);
       expect(Object.values(autoMapColumns(kind, headers!))).not.toContain(null);
     }

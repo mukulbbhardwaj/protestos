@@ -19,6 +19,7 @@ import { backfillCadSample } from './cad/sample.js';
 import { computeEquityIndex } from './cad/store.js';
 import { backfillCounties } from './counties.js';
 import { backfillDemoBase, DEMO_PASSWORD } from './demo.js';
+import { backfillSampleBilling } from './sample-billing.js';
 import { backfillSampleData, resetSampleData } from './sample-data.js';
 
 const args = process.argv.slice(2);
@@ -99,6 +100,7 @@ try {
     assertNotProduction('sample data');
     if (reset) await resetSampleData(prisma);
     await backfillSampleData(prisma);
+    await backfillSampleBilling(prisma);
   }
   if (run('cad-sample')) {
     assertNotProduction('the synthetic CAD roll');
