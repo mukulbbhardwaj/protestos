@@ -15,7 +15,7 @@ export class ApiError extends Error {
 
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; csv?: string } = {},
   fetcher: typeof fetch = fetch,
 ): Promise<T> {
   let res: Response;
@@ -23,8 +23,14 @@ export async function api<T>(
     res = await fetcher(`${BASE}${path}`, {
       method: init.method ?? 'GET',
       credentials: 'include',
-      headers: init.body !== undefined ? { 'content-type': 'application/json' } : undefined,
-      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      headers:
+        init.csv !== undefined
+          ? { 'content-type': 'text/csv' }
+          : init.body !== undefined
+            ? { 'content-type': 'application/json' }
+            : undefined,
+      // `csv` sends a file's text as-is (CSV imports); `body` is JSON.
+      body: init.csv ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
     });
   } catch {
     throw new ApiError(

@@ -16,7 +16,7 @@ import {
 } from './helpers.js';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
-type Target = 'member' | 'invitation' | 'contact' | 'property' | 'taxYear';
+type Target = 'member' | 'invitation' | 'contact' | 'property' | 'taxYear' | 'importJob';
 
 interface IsolationCase {
   method: Method;
@@ -78,6 +78,20 @@ const CASES: IsolationCase[] = [
   },
   { method: 'POST', path: '/properties/bulk/rollover', body: { ids: [1], taxYear: 2030 } },
   { method: 'GET', path: '/search?q=bravo' },
+  { method: 'GET', path: '/imports' },
+  { method: 'GET', path: '/imports/template?kind=CONTACTS_PROPERTIES' },
+  { method: 'POST', path: '/imports?kind=CONTACTS_PROPERTIES&fileName=x.csv', body: { csv: 'a' } },
+  { method: 'GET', path: '/imports/:id', targetB: 'importJob' },
+  {
+    method: 'PATCH',
+    path: '/imports/:id/mapping',
+    body: { columnMapping: {} },
+    targetB: 'importJob',
+  },
+  { method: 'POST', path: '/imports/:id/preview', targetB: 'importJob' },
+  { method: 'POST', path: '/imports/:id/run', targetB: 'importJob' },
+  { method: 'GET', path: '/imports/:id/rows', targetB: 'importJob' },
+  { method: 'GET', path: '/imports/:id/errors.csv', targetB: 'importJob' },
   { method: 'GET', path: '/calculator/coverage' },
   { method: 'GET', path: '/calculator/facets?countyId=1&taxYear=2026' },
   { method: 'GET', path: '/calculator/parcels?countyId=1&taxYear=2026' },
@@ -105,6 +119,8 @@ async function snapshotB() {
     contacts: await t.prisma.contact.findMany({ where, orderBy: { id: 'asc' } }),
     properties: await t.prisma.property.findMany({ where, orderBy: { id: 'asc' } }),
     taxYears: await t.prisma.taxYearRecord.findMany({ where, orderBy: { id: 'asc' } }),
+    imports: await t.prisma.importJob.findMany({ where, orderBy: { id: 'asc' } }),
+    importRows: await t.prisma.importRow.count({ where }),
     stageEvents: await t.prisma.protestStageEvent.count({ where }),
     audit: await t.prisma.auditLog.count({ where }),
   });
@@ -177,9 +193,34 @@ beforeAll(async () => {
       noticeAppraised: '100000',
     },
   });
+  const importB = await t.prisma.importJob.create({
+    data: {
+      orgId: ownerB.org.id,
+      kind: 'CONTACTS_PROPERTIES',
+      status: 'PREVIEWED',
+      fileKey: `org/${ownerB.org.id}/imports/bravo.csv`,
+      fileName: 'bravo.csv',
+      rowCount: 1,
+      headers: ['Client Name'],
+      columnMapping: { 'Client Name': 'displayName' },
+    },
+  });
+  await t.storage.put(importB.fileKey, 'Client Name\nBravo Secret\n', 'text/csv');
+  await t.prisma.importRow.create({
+    data: {
+      orgId: ownerB.org.id,
+      importJobId: importB.id,
+      phase: 'PREVIEW',
+      rowNumber: 1,
+      action: 'ERROR',
+      label: 'Bravo Secret',
+      messages: ['bravo'],
+    },
+  });
   b = {
     slug: ownerB.org.slug,
     ids: {
+      importJob: importB.id,
       member: memberB.id,
       invitation: invB.json().id,
       contact: contactB.id,
@@ -204,7 +245,20 @@ beforeAll(async () => {
       countyId: county.id,
     },
   });
-  a.ids = { contact: contactA.id, property: propertyA.id };
+  const importA = await t.prisma.importJob.create({
+    data: {
+      orgId: ownerA.org.id,
+      kind: 'CONTACTS_PROPERTIES',
+      status: 'PREVIEWED',
+      fileKey: `org/${ownerA.org.id}/imports/alpha.csv`,
+      fileName: 'alpha.csv',
+      rowCount: 1,
+      headers: ['Client Name'],
+      columnMapping: { 'Client Name': 'displayName' },
+    },
+  });
+  await t.storage.put(importA.fileKey, 'Client Name\nAlpha Person\n', 'text/csv');
+  a.ids = { contact: contactA.id, property: propertyA.id, importJob: importA.id };
 
   // Make the generic bodies above point at org B's rows.
   for (const c of CASES) {

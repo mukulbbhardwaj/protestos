@@ -4,3 +4,5 @@ export * from './schemas/index.js';
 export { SENTRY_DATA_COLLECTION } from './sentry.js';
 export * from './fees/index.js';
 export * from './estimate/index.js';
+export * from './normalize/index.js';
+export * from './imports/fields.js';

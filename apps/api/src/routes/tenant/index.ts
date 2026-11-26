@@ -5,6 +5,7 @@ import { auditLogRoutes } from './audit-log.js';
 import { calculatorRoutes } from './calculator.js';
 import { contactRoutes } from './contacts.js';
 import { financeRoutes } from './finance.js';
+import { importRoutes } from './imports.js';
 import { invitationRoutes } from './invitations.js';
 import { memberRoutes } from './members.js';
 import { overviewRoutes } from './overview.js';
@@ -28,4 +29,5 @@ export const tenantRoutes: FastifyPluginAsync<{ services: Services }> = async (
   await app.register(propertyRoutes);
   await app.register(searchRoutes);
   await app.register(calculatorRoutes);
+  await app.register(importRoutes, { storage: services.storage, jobs: services.jobs });
 };

@@ -26,6 +26,8 @@ export function createServices(ctx: ServiceContext) {
     /** Super-admin only: what data the platform holds (raw access; never for tenant routes). */
     platformData: createPlatformDataService(ctx),
     mail: ctx.mail,
+    storage: ctx.storage,
+    jobs: ctx.jobs,
     config: ctx.config,
     /** Org-scoped data access (forOrg). Cached per org; the extension is stateless. */
     tenantDb(orgId: number): OrgDb {

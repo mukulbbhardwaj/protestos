@@ -12,6 +12,8 @@ const EnvSchema = z.object({
   COOKIE_SECURE: z.stringbool().optional(),
   AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
   DEV_MAIL_DIR: z.string().optional(),
+  /** Where uploaded files live in development (shared with the worker). S3-compatible storage later. */
+  STORAGE_DIR: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   LOG_PRETTY: z.stringbool().default(false),
   SENTRY_DSN: z.string().optional(),
@@ -19,7 +21,11 @@ const EnvSchema = z.object({
   APP_VERSION: z.string().default('dev'),
 });
 
-export type Env = z.infer<typeof EnvSchema> & { COOKIE_SECURE: boolean; DEV_MAIL_DIR: string };
+export type Env = z.infer<typeof EnvSchema> & {
+  COOKIE_SECURE: boolean;
+  DEV_MAIL_DIR: string;
+  STORAGE_DIR: string;
+};
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (source === process.env) loadRootEnv();
@@ -33,5 +39,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     // Secure cookies whenever the web app is served over https.
     COOKIE_SECURE: env.COOKIE_SECURE ?? env.APP_URL.startsWith('https://'),
     DEV_MAIL_DIR: env.DEV_MAIL_DIR ?? join(findWorkspaceRoot() ?? process.cwd(), '.dev-mail'),
+    STORAGE_DIR: env.STORAGE_DIR ?? join(findWorkspaceRoot() ?? process.cwd(), '.dev-storage'),
   };
 }

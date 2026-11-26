@@ -18,6 +18,8 @@ import { AcceptInvitePage } from '@/pages/invite/AcceptInvitePage';
 import { LandingPage } from '@/pages/landing/LandingPage';
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
 import { CalculatorPage } from '@/pages/org/calculator/CalculatorPage';
+import { ImportDetailPage } from '@/pages/org/imports/ImportDetailPage';
+import { ImportsPage } from '@/pages/org/imports/ImportsPage';
 import { PlatformDataPage } from '@/pages/org/platform/PlatformDataPage';
 import { ContactDetailPage } from '@/pages/org/contacts/ContactDetailPage';
 import { ContactsListPage } from '@/pages/org/contacts/ContactsListPage';
@@ -70,6 +72,22 @@ export const router = createBrowserRouter([
           { path: 'properties', element: <PropertiesListPage /> },
           { path: 'properties/:propertyId', element: <PropertyDetailPage /> },
           { path: 'calculator', element: <CalculatorPage /> },
+          {
+            path: 'imports',
+            element: (
+              <RequireRole minimum="STAFF">
+                <ImportsPage />
+              </RequireRole>
+            ),
+          },
+          {
+            path: 'imports/:importId',
+            element: (
+              <RequireRole minimum="STAFF">
+                <ImportDetailPage />
+              </RequireRole>
+            ),
+          },
           { path: 'platform-data', element: <PlatformDataPage /> },
           ...placeholderRoutes,
           {

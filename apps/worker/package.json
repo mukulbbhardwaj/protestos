@@ -15,7 +15,10 @@
     "@sentry/node": "11.17.0",
     "pg-boss": "12.39.0",
     "pino": "10.4.0",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@app/imports": "workspace:*",
+    "@app/db": "workspace:*",
+    "@app/providers": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.6",

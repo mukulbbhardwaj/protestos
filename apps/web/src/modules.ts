@@ -186,7 +186,6 @@ export const MODULES: ModuleDef[] = [
     icon: Upload,
     minRole: 'STAFF',
     group: 'Firm',
-    comingIn: 'M3',
     summary: 'Bring in clients, properties and values from your spreadsheets.',
     features: [
       'Automatic column matching, with a saved mapping per firm',

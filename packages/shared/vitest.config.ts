@@ -12,6 +12,8 @@ export default defineConfig({
         'src/fees/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
         // Spec savings-calculator.md section 8: the estimate engine too.
         'src/estimate/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
+        // BUILD_PLAN 10: normalizers are pure functions with high coverage.
+        'src/normalize/**': { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
   },

@@ -9,7 +9,7 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M1 Auth, orgs and tenancy                | ✅ Done                   |
 | M2 Contacts, properties, tax years       | ✅ Done                   |
 | M2.5 Tax savings calculator              | ✅ Done (awaiting review) |
-| M3 CSV import                            | Not started               |
+| M3 CSV import                            | ✅ Done (awaiting review) |
 | M4 Invoicing and payments                | Not started               |
 | M5 Email and delivery tracking           | Not started               |
 | M6 Documents and e-signature             | Not started               |
@@ -17,6 +17,52 @@ this file updated, a commit on a feature branch, and a summary for Mukul.
 | M8 Public lead form                      | Not started               |
 | M9 SaaS billing, onboarding, super-admin | Not started               |
 | M10 Hardening and pilot readiness        | Not started               |
+
+---
+
+## M3: CSV import (2026-11-26)
+
+ADR 007.
+
+### Done
+
+- **Pipeline:** upload (raw CSV, 20 MB / 50,000 rows) → automatic column mapping (header
+  synonyms from real firm exports; the firm's corrected mapping is remembered per import type)
+  → dry run → confirm → background job (pg-boss, worker `imports.run`) → summary.
+- **Import types:** Clients & properties, and Tax-year values. Historical invoices wait for
+  invoicing (M4).
+- **Matching and idempotency:** clients by client number, then email, then the property's
+  owner; properties by county + account (punctuation-insensitive); tax years by property +
+  year. Blank cells never erase values; changed fields are listed per row; stage changes are
+  written to the stage history; new clients get the firm's next client number.
+- **Normalizers** (100% coverage): county account formats, E.164 phones, dates (MM/DD/YYYY,
+  M/D/YY, ISO, "Apr 15, 2026", Excel serials), money, percentages, yes/no, "City, ST ZIP".
+  Hand-entered properties now use the same account rules.
+- **Errors:** per-row messages in plain sentences; bad rows are skipped, good rows saved;
+  "Error rows" downloads the original rows plus an "Import error" column, ready to fix and
+  re-upload.
+- **Storage** (`StorageProvider`: dev folder, memory for tests) and **job queue** interfaces.
+- **Web:** Imports page (choose type, sample files, upload, history) and an import page
+  (map columns with sample values → dry run tiles and rows by result → import, with live
+  progress).
+- Audit: `import.uploaded`, `import.started`, `import.completed` (with counts).
+
+### Verified
+
+- **M3 "done when":** a 5,000-row file imports (5,000 created), importing it again makes zero
+  changes (5,000 unchanged), and error rows download as CSV — all in `apps/api/test/imports.test.ts`.
+- 285 unit/integration tests (api 168 incl. isolation for all 9 import routes; shared 91;
+  db 11; web 7; providers 6; worker 2) and 8 Playwright tests; lint, typecheck, format, build.
+- Clicked through in the browser with the worker running: upload → auto-map → dry run →
+  import → finished, with the bad row skipped.
+
+### Decisions for later milestones (Mukul, 2026-11-26)
+
+- **M4:** invoice grouping is a firm setting; default one invoice per client per tax year.
+- **M5:** build behind `MailProvider` with the dev/log providers; choose Postmark or Brevo later.
+- **M6:** build e-signature behind `SignatureProvider` with a mock; choose the provider later.
+- **M9:** plans, trial and limits configurable (per-property and per-seat); placeholder prices
+  in Stripe test mode.
 
 ---
 

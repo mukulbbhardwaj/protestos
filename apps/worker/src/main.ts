@@ -1,3 +1,5 @@
+import { createPrismaClient } from '@app/db/raw';
+import { DevFileStorageProvider } from '@app/providers';
 import { SENTRY_DATA_COLLECTION } from '@app/shared';
 import * as Sentry from '@sentry/node';
 import { PgBoss } from 'pg-boss';
@@ -21,6 +23,10 @@ if (env.SENTRY_DSN) {
   });
 }
 
+const deps = {
+  prisma: createPrismaClient(env.DATABASE_URL),
+  storage: new DevFileStorageProvider(env.STORAGE_DIR),
+};
 const boss = new PgBoss(env.DATABASE_URL);
 boss.on('error', (err) => {
   log.error({ err }, 'pg-boss error');
@@ -33,7 +39,7 @@ for (const job of jobs) {
   await boss.createQueue(job.name);
   await boss.work<object>(job.name, async (batch) => {
     try {
-      await job.handle(batch, log.child({ job: job.name }));
+      await job.handle(batch, log.child({ job: job.name }), deps);
     } catch (err) {
       Sentry.captureException(err);
       throw err;
@@ -47,6 +53,7 @@ log.info({ queues: jobs.map((j) => j.name) }, 'worker started');
 const shutdown = async (signal: string) => {
   log.info({ signal }, 'shutting down');
   await boss.stop({ graceful: true });
+  await deps.prisma.$disconnect();
   process.exit(0);
 };
 process.once('SIGINT', () => void shutdown('SIGINT'));

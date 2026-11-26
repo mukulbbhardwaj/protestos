@@ -19,7 +19,9 @@
     "zod": "4.6.7",
     "@app/providers": "workspace:*",
     "@fastify/cookie": "11.1.5",
-    "@fastify/rate-limit": "11.3.0"
+    "@fastify/rate-limit": "11.3.0",
+    "pg-boss": "12.39.0",
+    "@app/imports": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.6",

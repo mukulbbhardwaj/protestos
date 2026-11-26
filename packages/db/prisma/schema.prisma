@@ -100,6 +100,34 @@ enum TaxUnitKind {
   OTHER
 }
 
+/// BUILD_PLAN 5.8. HISTORICAL_INVOICES arrives with invoices (M4).
+enum ImportKind {
+  CONTACTS_PROPERTIES
+  TAX_YEAR_VALUES
+  HISTORICAL_INVOICES
+}
+
+enum ImportStatus {
+  UPLOADED
+  PREVIEWED
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// What a row did (or would do, in a dry run).
+enum ImportAction {
+  CREATE
+  UPDATE
+  UNCHANGED
+  ERROR
+}
+
+enum ImportPhase {
+  PREVIEW
+  APPLY
+}
+
 enum Plan {
   STARTER
   GROWTH
@@ -155,6 +183,8 @@ model Org {
   properties  Property[]
   taxYears    TaxYearRecord[]
   stageEvents ProtestStageEvent[]
+  imports     ImportJob[]
+  importRows  ImportRow[]
 }
 
 model User {
@@ -175,6 +205,7 @@ model User {
   invitationsSent Invitation[]
   consultantFor   Property[]
   stageEvents     ProtestStageEvent[]
+  imports         ImportJob[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -517,4 +548,61 @@ model ProtestStageEvent {
   actor         User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([orgId, taxYearRecordId, at])
+}
+
+/// A CSV import (BUILD_PLAN 8.9): upload → mapping → dry run → confirm → background job.
+model ImportJob {
+  id            Int          @id @default(autoincrement())
+  orgId         Int
+  kind          ImportKind
+  status        ImportStatus @default(UPLOADED)
+  /// Storage key of the uploaded file (org/{orgId}/imports/…).
+  fileKey       String
+  fileName      String
+  rowCount      Int
+  /// The file's header row, as written.
+  headers       String[]
+  /// { [header]: field key } — which column feeds which field.
+  columnMapping Json         @default("{}")
+  /// Counts per action, from the latest dry run or run: { CREATE, UPDATE, UNCHANGED, ERROR }.
+  summary       Json?
+  /// Why a run failed as a whole (row-level problems are ImportRow errors).
+  error         String?
+  createdById   Int?
+  previewedAt   DateTime?    @db.Timestamptz(6)
+  startedAt     DateTime?    @db.Timestamptz(6)
+  finishedAt    DateTime?    @db.Timestamptz(6)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(6)
+
+  org       Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  rows      ImportRow[]
+
+  @@unique([orgId, id])
+  @@index([orgId, createdAt])
+}
+
+/// One row's outcome. A dry run's rows are replaced by the run's.
+model ImportRow {
+  id          Int          @id @default(autoincrement())
+  orgId       Int
+  importJobId Int
+  phase       ImportPhase
+  /// 1-based data row number (the header row is not counted), as people see it in a spreadsheet + 1.
+  rowNumber   Int
+  action      ImportAction
+  /// Short description: "Jane Smith (1042) · Harris 0660640130020".
+  label       String?
+  /// Fields that changed (UPDATE) — names, not values.
+  changes     String[]     @default([])
+  messages    String[]     @default([])
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+
+  org       Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [orgId, importJobId], references: [orgId, id], onDelete: Cascade)
+
+  @@index([orgId, importJobId, phase, rowNumber])
+  @@index([orgId, importJobId, phase, action])
 }

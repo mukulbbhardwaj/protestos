@@ -1,6 +1,7 @@
 import { pingDatabase } from '@app/db';
 import type { PrismaClient } from '@app/db/raw';
-import { DevFileMailProvider, type MailProvider } from '@app/providers';
+import { DevFileMailProvider, type MailProvider, type StorageProvider } from '@app/providers';
+import type { JobQueue } from './jobs.js';
 import { REQUEST_ID_HEADER, resolveRequestId } from '@app/shared/node';
 import rateLimit from '@fastify/rate-limit';
 import * as Sentry from '@sentry/node';
@@ -24,6 +25,8 @@ import { createServices } from './services/index.js';
 export interface AppDeps {
   prisma: PrismaClient;
   mail: MailProvider;
+  storage: StorageProvider;
+  jobs: JobQueue;
   appUrl: string;
   version: string;
   cookieSecure?: boolean;
@@ -64,6 +67,8 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}) {
   const services = createServices({
     prisma: deps.prisma,
     mail: deps.mail,
+    storage: deps.storage,
+    jobs: deps.jobs,
     config: { appUrl: deps.appUrl, sessionTtlDays: deps.sessionTtlDays ?? 30 },
   });
   await registerAuth(app, services, { cookieSecure: deps.cookieSecure ?? false });

@@ -1,5 +1,6 @@
 import { createPrismaClient } from '@app/db/raw';
-import { DevFileMailProvider } from '@app/providers';
+import { DevFileMailProvider, DevFileStorageProvider } from '@app/providers';
+import { createPgBossQueue } from './jobs.js';
 import { buildApp } from './app.js';
 import { loadEnv } from './env.js';
 import { initSentry } from './instrument.js';
@@ -15,10 +16,15 @@ if (env.NODE_ENV === 'production') {
 }
 const mail = new DevFileMailProvider(env.DEV_MAIL_DIR);
 
+const storage = new DevFileStorageProvider(env.STORAGE_DIR);
+const jobs = await createPgBossQueue(env.DATABASE_URL);
+
 const app = await buildApp(
   {
     prisma,
     mail,
+    storage,
+    jobs,
     appUrl: env.APP_URL,
     version: env.APP_VERSION,
     cookieSecure: env.COOKIE_SECURE,
@@ -32,6 +38,7 @@ const app = await buildApp(
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');
   await app.close();
+  await jobs.stop();
   await prisma.$disconnect();
   process.exit(0);
 };
