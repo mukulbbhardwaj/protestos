@@ -6,6 +6,7 @@ import { calculatorRoutes } from './calculator.js';
 import type { DocumentDeps } from '../../services/documents.js';
 import { contactRoutes } from './contacts.js';
 import { documentRoutes } from './documents.js';
+import { hearingRoutes } from './hearings.js';
 import { emailRoutes } from './email.js';
 import { financeRoutes } from './finance.js';
 import { importRoutes } from './imports.js';
@@ -39,4 +40,5 @@ export const tenantRoutes: FastifyPluginAsync<{
   await app.register(paymentRoutes, { jobs: services.jobs });
   await app.register(emailRoutes, { jobs: services.jobs });
   await app.register(documentRoutes, { deps: documents });
+  await app.register(hearingRoutes, { appUrl: documents.appUrl });
 };

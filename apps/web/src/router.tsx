@@ -32,6 +32,7 @@ import { PropertyDetailPage } from '@/pages/org/properties/PropertyDetailPage';
 import { FinancePage } from '@/pages/org/FinancePage';
 import { ModulePage } from '@/pages/org/ModulePage';
 import { DocumentsPage } from '@/pages/org/documents/DocumentsPage';
+import { HearingsPage } from '@/pages/org/hearings/HearingsPage';
 import { AuditLogPage } from '@/pages/org/settings/AuditLogPage';
 import { DocumentSettingsPage } from '@/pages/org/settings/DocumentSettingsPage';
 import { SignPage } from '@/pages/sign/SignPage';
@@ -84,6 +85,7 @@ export const router = createBrowserRouter([
           { path: 'invoices/:invoiceId', element: <InvoiceDetailPage /> },
           { path: 'payments', element: <PaymentsPage /> },
           { path: 'documents', element: <DocumentsPage /> },
+          { path: 'hearings', element: <HearingsPage /> },
           {
             path: 'imports',
             element: (

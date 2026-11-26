@@ -8,3 +8,5 @@ export * from './imports.js';
 export * from './billing.js';
 export * from './email.js';
 export * from './documents.js';
+export * from './hearings.js';
+export * from './finance.js';

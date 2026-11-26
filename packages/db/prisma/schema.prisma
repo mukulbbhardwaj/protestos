@@ -105,6 +105,7 @@ enum ImportKind {
   CONTACTS_PROPERTIES
   TAX_YEAR_VALUES
   HISTORICAL_INVOICES
+  HEARINGS
 }
 
 enum ImportStatus {
@@ -166,6 +167,21 @@ enum PaymentMethod {
   CASH
   CARD
   OTHER
+}
+
+enum HearingType {
+  INFORMAL
+  ARB
+  ARBITRATION
+  LITIGATION
+}
+
+enum HearingStatus {
+  SCHEDULED
+  ATTENDED
+  RESCHEDULED
+  CANCELLED
+  NO_SHOW
 }
 
 enum DocumentKind {
@@ -278,6 +294,7 @@ model Org {
   documents          Document[]
   documentProperties DocumentProperty[]
   envelopes          SignatureEnvelope[]
+  hearings           Hearing[]
 }
 
 model User {
@@ -306,6 +323,7 @@ model User {
   documentTemplatesEdited DocumentTemplate[]
   documentsCreated        Document[]
   envelopesSent           SignatureEnvelope[]
+  hearingsAssigned        Hearing[]
 }
 
 /// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
@@ -374,13 +392,15 @@ model OrgSetting {
 }
 
 model Membership {
-  id        Int              @id @default(autoincrement())
-  orgId     Int
-  userId    Int
-  role      OrgRole
-  status    MembershipStatus @default(ACTIVE)
-  createdAt DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
+  id            Int              @id @default(autoincrement())
+  orgId         Int
+  userId        Int
+  role          OrgRole
+  status        MembershipStatus @default(ACTIVE)
+  /// Secret for this member's read-only hearings calendar feed (iCal). Rotatable.
+  calendarToken String?          @unique
+  createdAt     DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @db.Timestamptz(6)
 
   org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -585,6 +605,7 @@ model Property {
   taxYears     TaxYearRecord[]
   invoiceLines InvoiceLine[]
   documents    DocumentProperty[]
+  hearings     Hearing[]
 
   @@unique([orgId, id])
   @@unique([orgId, countyId, accountNumber])
@@ -981,4 +1002,30 @@ model DocumentProperty {
 
   @@id([documentId, propertyId])
   @@index([orgId, propertyId])
+}
+
+/// BUILD_PLAN 5.5. A hearing (or informal meeting) for one property-year.
+model Hearing {
+  id             Int           @id @default(autoincrement())
+  orgId          Int
+  propertyId     Int
+  taxYear        Int
+  scheduledAt    DateTime      @db.Timestamptz(6)
+  type           HearingType   @default(ARB)
+  status         HearingStatus @default(SCHEDULED)
+  location       String?
+  panel          String?
+  notes          String?
+  assignedUserId Int?
+  deletedAt      DateTime?     @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(6)
+
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [orgId, propertyId], references: [orgId, id], onDelete: Cascade)
+  assigned User?    @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, scheduledAt])
+  @@index([orgId, propertyId, taxYear])
+  @@index([orgId, assignedUserId, scheduledAt])
 }

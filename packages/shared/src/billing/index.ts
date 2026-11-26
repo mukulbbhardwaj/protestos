@@ -152,3 +152,12 @@ export function addDays(date: string, days: number): string {
 /** Sum of amounts as dollars ("1234.50"). */
 export const sumMoney = (values: DecimalLike[]) =>
   dollars(values.reduce<bigint>((s, v) => s + cents(v), 0n));
+
+export {
+  addMoney,
+  collectionRate,
+  financePeriods,
+  inRange,
+  monthsEnding,
+  type DayRange,
+} from './finance.js';

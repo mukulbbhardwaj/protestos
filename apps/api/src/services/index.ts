@@ -29,6 +29,14 @@ export function createServices(ctx: ServiceContext) {
     platformData: createPlatformDataService(ctx),
     /** Provider webhook events: found by provider message id, then applied in that org. */
     mailEvents: { apply: (events: MailEvent[]) => applyMailEvents(ctx.prisma, events) },
+    /** Calendar feed links: the token finds the membership and its org. */
+    calendar: {
+      findByToken: (token: string): Promise<{ orgId: number; userId: number } | null> =>
+        ctx.prisma.membership.findFirst({
+          where: { calendarToken: token, status: 'ACTIVE' },
+          select: { orgId: true, userId: true },
+        }),
+    },
     /** Public signing links: the token finds the envelope and its org. */
     signing: {
       findByToken: (token: string): Promise<{ id: number; orgId: number } | null> =>

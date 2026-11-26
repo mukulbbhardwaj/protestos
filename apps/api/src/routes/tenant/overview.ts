@@ -1,4 +1,5 @@
-import { OrgOverview } from '@app/shared';
+import { OrgOverview, zonedToUtc } from '@app/shared';
+import { todayIn } from '../../services/billing.js';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { tenantOf } from '../../plugins/tenant.js';
 import { currentTaxYear } from './mappers.js';
@@ -21,6 +22,7 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
             planStatus: true,
             trialEndsAt: true,
             taxYearDefault: true,
+            timezone: true,
           },
         }),
         db.membership.count({ where: { status: 'ACTIVE' } }),
@@ -48,6 +50,28 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
             where: { status: 'BOUNCED', queuedAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
           }),
         ]);
+      // "Today" and "this week" in the firm's time zone: the next 7 days from midnight.
+      const startOfToday = zonedToUtc(todayIn(org.timezone), '00:00', org.timezone);
+      const DAY = 86_400_000;
+      const live = {
+        deletedAt: null,
+        status: { in: ['SCHEDULED' as const, 'RESCHEDULED' as const] },
+      };
+      const [hearingsToday, hearingsThisWeek, documentsAwaitingSignature] = await Promise.all([
+        db.hearing.count({
+          where: {
+            ...live,
+            scheduledAt: { gte: startOfToday, lt: new Date(startOfToday.getTime() + DAY) },
+          },
+        }),
+        db.hearing.count({
+          where: {
+            ...live,
+            scheduledAt: { gte: startOfToday, lt: new Date(startOfToday.getTime() + 7 * DAY) },
+          },
+        }),
+        db.document.count({ where: { status: { in: ['SENT', 'VIEWED'] } } }),
+      ]);
       return {
         org: { id: org.id, name: org.name, slug: org.slug },
         role,
@@ -60,6 +84,9 @@ export const overviewRoutes: FastifyPluginAsyncZod = async (app) => {
           newProspects30d,
           myProperties,
           bouncedEmails,
+          hearingsToday,
+          hearingsThisWeek,
+          documentsAwaitingSignature,
           stages: stages.map((s) => ({ stage: s.protestStage, count: s._count._all })),
         },
         checklist: {

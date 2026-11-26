@@ -25,6 +25,10 @@ export const KIND_INFO: Record<ImportKind, { title: string; body: string }> = {
     title: 'Tax-year values',
     body: 'Notice and final values, tax rate, dates and stage for properties you already have. Matches on county, account number and tax year.',
   },
+  HEARINGS: {
+    title: 'Hearing schedule',
+    body: 'Hearing dates from appraisal districts, in Central time. Matches on county, account number, tax year and hearing type, so updated schedules reschedule.',
+  },
   HISTORICAL_INVOICES: {
     title: 'Past invoices',
     body: 'Invoices and payments from your previous system, so balances carry over. Matches on invoice number; clients on client number, email or name.',
@@ -70,7 +74,7 @@ export function ImportsPage() {
         description="Bring in clients, properties and tax-year values from your spreadsheets. Every import starts with a dry run, and re-importing a file never creates duplicates."
       />
       <Card className="mb-6 p-5">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {(Object.keys(KIND_INFO) as ImportKind[]).map((k) => (
             <button
               key={k}

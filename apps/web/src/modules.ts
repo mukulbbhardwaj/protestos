@@ -107,7 +107,6 @@ export const MODULES: ModuleDef[] = [
     icon: CalendarClock,
     minRole: 'READ_ONLY',
     group: 'Work',
-    comingIn: 'M7',
     summary: 'Informal, ARB, arbitration and litigation hearings on one calendar.',
     features: [
       'Week and month calendar, filtered by consultant, county and status',
@@ -167,7 +166,6 @@ export const MODULES: ModuleDef[] = [
     icon: LineChart,
     minRole: 'ADMIN',
     group: 'Money',
-    comingIn: 'M7',
     summary: 'Billed, collected and outstanding, for owners and admins.',
     features: [
       'Billed and collected by month, year to date and calendar year',

@@ -68,7 +68,7 @@ describe('roles', () => {
 
   it('STAFF gets 403 on finance and settings, but can see the overview and team', async () => {
     const { slug, cookie } = await orgWith('STAFF');
-    expect((await get(`/orgs/${slug}/finance/summary`, cookie)).statusCode).toBe(403);
+    expect((await get(`/orgs/${slug}/finance/dashboard`, cookie)).statusCode).toBe(403);
     expect((await get(`/orgs/${slug}/settings`, cookie)).statusCode).toBe(403);
     expect((await send('PATCH', `/orgs/${slug}/settings`, cookie, { name: 'X' })).statusCode).toBe(
       403,
@@ -81,7 +81,7 @@ describe('roles', () => {
 
   it('ADMIN can use finance and settings', async () => {
     const { slug, cookie } = await orgWith('ADMIN');
-    expect((await get(`/orgs/${slug}/finance/summary`, cookie)).statusCode).toBe(200);
+    expect((await get(`/orgs/${slug}/finance/dashboard`, cookie)).statusCode).toBe(200);
     expect((await get(`/orgs/${slug}/settings`, cookie)).statusCode).toBe(200);
   });
 
